@@ -1694,26 +1694,12 @@
       <div class="planet-hour-widget">
         <div class="ph-header">
           <span class="ph-title">⌛ Planetary Hour</span>
-          <span class="ph-planet">☉ Sol Dominates</span>
+          <span class="ph-planet" id="ph-planet-name">Calculating...</span>
         </div>
-        <div class="ph-clock">
-          <div class="ph-segment filled"></div>
-          <div class="ph-segment filled"></div>
-          <div class="ph-segment filled"></div>
-          <div class="ph-segment current"></div>
-          <div class="ph-segment"></div>
-          <div class="ph-segment"></div>
-          <div class="ph-segment"></div>
-          <div class="ph-segment"></div>
-          <div class="ph-segment"></div>
-          <div class="ph-segment"></div>
-          <div class="ph-segment"></div>
-          <div class="ph-segment"></div>
-        </div>
-        <div style="margin-top:0.5rem;" class="ph-bonuses">
-          <span class="ph-bonus">+30% Solar Gain</span>
-          <span class="ph-bonus">Fire Rituals Empowered</span>
-          <span class="ph-bonus">Sight Sharpened</span>
+        <div class="ph-clock" id="ph-clock"></div>
+        <div style="margin-top:0.5rem;" class="ph-bonuses" id="ph-bonuses"></div>
+        <div style="margin-top:0.4rem;">
+          <span style="font-family:var(--ff-heading);font-size:0.45rem;letter-spacing:0.1em;color:var(--text-secondary);text-transform:uppercase;" id="ph-time-range"></span>
         </div>
       </div>
 
@@ -2272,6 +2258,7 @@
     }
 
     toast('The city map unfolds. Your position is marked. The missions pulse.');
+    startPlanetaryHourEngine(lat, lng);
   }
 
   function initLocation() {
@@ -2291,8 +2278,8 @@
         document.getElementById('location-text').textContent = 'Allow location for full map';
         document.getElementById('map-loading').querySelector('.map-loading-text').textContent =
           err.code === 1 ? 'Location permission denied — open via HTTPS' : 'Location unavailable';
-        // Still init map at a neutral point
         initMap(45.4642, 9.1900);
+        startPlanetaryHourEngine(45.4642, 9.1900);
       },
       { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
     );
@@ -2301,19 +2288,198 @@
 
 
   // ══════════════════════════════════════════
+  // PLANETARY HOUR ENGINE (Chaldean, real math)
+  // ══════════════════════════════════════════
+
+  // Chaldean order: Saturn, Jupiter, Mars, Sun, Venus, Mercury, Moon
+  const CHALDEAN = ['saturn', 'jupiter', 'mars', 'sun', 'venus', 'mercury', 'moon'];
+
+  // Day ruler by weekday (0=Sun, 1=Mon, ... 6=Sat)
+  const DAY_RULERS = [3, 6, 2, 5, 1, 4, 0]; // index into CHALDEAN
+
+  const PLANET_META = {
+    sun:     { symbol: '☉', name: 'Sol',     color: '#c9a84c', bonuses: ['+50% Solar Gain', 'Fire Rites Empowered', 'Sight Sharpened'],          resIndex: 0 },
+    moon:    { symbol: '☽', name: 'Luna',    color: '#8b8ba0', bonuses: ['+50% Lunar Gain', 'Dreams Vivid', 'Scrying Empowered'],                 resIndex: 1 },
+    jupiter: { symbol: '♃', name: 'Jupiter', color: '#6b4c8b', bonuses: ['+50% Jovian Gain', 'Expansion Rites Active', 'Recruit Bonus'],          resIndex: 2 },
+    mars:    { symbol: '♂', name: 'Mars',    color: '#8b2020', bonuses: ['+50% Martial Gain', 'Combat Damage +20%', 'Stress Resistance Up'],      resIndex: 3 },
+    saturn:  { symbol: '♄', name: 'Saturn',  color: '#8b7355', bonuses: ['+50% Saturnine Gain', 'Research Deepens', 'Seals Strengthened'],        resIndex: 4 },
+    venus:   { symbol: '♀', name: 'Venus',   color: '#5c8b5c', bonuses: ['+50% Venusian Gain', 'Acolyte Stress −10', 'Tarot Empowered'],          resIndex: 5 },
+    mercury: { symbol: '☿', name: 'Mercury', color: '#4a7a8b', bonuses: ['+50% Mercurial Gain', 'Glyphs Decoded Faster', 'Research Speed +30%'],  resIndex: 6 },
+  };
+
+  // Calculate sunrise/sunset using NOAA algorithm
+  function calcSunriseSunset(lat, lng, date) {
+    const rad = Math.PI / 180;
+    const deg = 180 / Math.PI;
+    const dayOfYear = Math.floor((date - new Date(date.getFullYear(), 0, 0)) / 86400000);
+    const B = (360 / 365) * (dayOfYear - 81) * rad;
+    const eot = 9.87 * Math.sin(2 * B) - 7.53 * Math.cos(B) - 1.5 * Math.sin(B); // minutes
+    const decl = 23.45 * Math.sin(B) * rad;
+    const HA = Math.acos(-Math.tan(lat * rad) * Math.tan(decl)) * deg; // hour angle in degrees
+    const tzOffset = date.getTimezoneOffset() / 60; // in hours, negative for east
+    const noon = 12 + tzOffset - lng / 15 - eot / 60;
+    const sunriseH = noon - HA / 15;
+    const sunsetH  = noon + HA / 15;
+    return { sunrise: sunriseH, sunset: sunsetH }; // decimal hours (local)
+  }
+
+  function getPlanetaryHour(lat, lng) {
+    const now = new Date();
+    const nowH = now.getHours() + now.getMinutes() / 60 + now.getSeconds() / 3600;
+    const { sunrise, sunset } = calcSunriseSunset(lat, lng, now);
+
+    const isDay = nowH >= sunrise && nowH < sunset;
+    const dayLen  = sunset - sunrise;         // hours of daylight
+    const nightLen = 24 - dayLen;             // hours of night
+    const hourLen  = isDay ? dayLen / 12 : nightLen / 12; // one planetary hour length
+
+    // Which hour number (0–11) within day or night?
+    let hourNum;
+    if (isDay) {
+      hourNum = Math.floor((nowH - sunrise) / hourLen);
+    } else {
+      const nightStart = nowH >= sunset ? nowH - sunset : nowH + (24 - sunset);
+      hourNum = Math.floor(nightStart / hourLen);
+    }
+    hourNum = Math.max(0, Math.min(11, hourNum));
+
+    // Day ruler index
+    const weekday = now.getDay(); // 0=Sun
+    const dayRulerIdx = DAY_RULERS[weekday];
+
+    // Daytime starts at day ruler; nighttime starts 13 hours after day ruler
+    const startIdx = isDay ? dayRulerIdx : (dayRulerIdx + 12) % 7;
+    const currentPlanetIdx = (startIdx + hourNum) % 7;
+    const currentPlanet = CHALDEAN[currentPlanetIdx];
+
+    // Time range of this hour
+    let hourStart, hourEnd;
+    if (isDay) {
+      hourStart = sunrise + hourNum * hourLen;
+      hourEnd   = sunrise + (hourNum + 1) * hourLen;
+    } else {
+      const ns = nowH >= sunset ? sunset : 0;
+      const nightStart = sunset;
+      if (nowH >= sunset) {
+        hourStart = sunset + hourNum * hourLen;
+        hourEnd   = sunset + (hourNum + 1) * hourLen;
+      } else {
+        hourStart = (sunset - 24) + hourNum * hourLen; // previous day night spillover
+        hourEnd   = hourStart + hourLen;
+      }
+    }
+
+    // Progress through current hour (0–1)
+    const progress = ((nowH - hourStart) / hourLen);
+
+    // Build all 12 hours of this period for display
+    const hours = [];
+    for (let i = 0; i < 12; i++) {
+      hours.push(CHALDEAN[(startIdx + i) % 7]);
+    }
+
+    return {
+      planet: currentPlanet,
+      meta: PLANET_META[currentPlanet],
+      hourNum,
+      progress: Math.max(0, Math.min(1, progress)),
+      hourStart, hourEnd, hourLen,
+      hours, isDay,
+      dayRuler: CHALDEAN[dayRulerIdx],
+    };
+  }
+
+  function fmtHour(h) {
+    // Convert decimal hour to HH:MM
+    const hh = Math.floor(((h % 24) + 24) % 24);
+    const mm = Math.floor((h - Math.floor(h)) * 60);
+    return hh.toString().padStart(2,'0') + ':' + mm.toString().padStart(2,'0');
+  }
+
+  function renderPlanetaryHour(lat, lng) {
+    const ph = getPlanetaryHour(lat, lng);
+    const m  = ph.meta;
+
+    // Planet name + symbol
+    document.getElementById('ph-planet-name').textContent = m.symbol + ' ' + m.name + ' Hour';
+    document.getElementById('ph-planet-name').style.color = m.color;
+
+    // Clock segments (12 segments, filled = past, current = active)
+    const clock = document.getElementById('ph-clock');
+    clock.innerHTML = '';
+    for (let i = 0; i < 12; i++) {
+      const seg = document.createElement('div');
+      const pm = PLANET_META[ph.hours[i]];
+      if (i < ph.hourNum) {
+        seg.className = 'ph-segment filled';
+        seg.style.background = pm.color;
+        seg.style.opacity = '0.4';
+      } else if (i === ph.hourNum) {
+        seg.className = 'ph-segment current';
+        seg.style.background = m.color;
+        seg.style.boxShadow = `0 0 6px ${m.color}`;
+      } else {
+        seg.className = 'ph-segment';
+      }
+      seg.title = pm.name;
+      clock.appendChild(seg);
+    }
+
+    // Bonuses
+    const bonuses = document.getElementById('ph-bonuses');
+    bonuses.innerHTML = m.bonuses.map(b =>
+      `<span class="ph-bonus" style="border-color:${m.color};color:${m.color}">${b}</span>`
+    ).join('');
+
+    // Time range
+    document.getElementById('ph-time-range').textContent =
+      fmtHour(ph.hourStart) + ' – ' + fmtHour(ph.hourEnd) +
+      ' · ' + (ph.isDay ? 'Day' : 'Night') + ' Hour ' + (ph.hourNum + 1) + '/12';
+
+    // Update dominant resource pill highlight
+    updateDominantPill(ph.planet, ph.meta.resIndex);
+
+    // Boost rate of dominant resource
+    return ph;
+  }
+
+  function updateDominantPill(planet, resIdx) {
+    document.querySelectorAll('.resource-pill').forEach((p, i) => {
+      p.classList.toggle('dominant', i === resIdx);
+    });
+    // Boost rate: dominant planet gets 1.5× rate during its hour
+    rates.forEach((_, i) => {
+      baseRates[i] = BASE_RATES[i];
+    });
+    rates[resIdx] = BASE_RATES[resIdx] * 1.5;
+  }
+
+  // ══════════════════════════════════════════
   // RESOURCES TICK
   // ══════════════════════════════════════════
-  const rates = [3, 7, 1, 2, 0.5, 4, 3];
+  const BASE_RATES = [3, 7, 1, 2, 0.5, 4, 3];
+  const rates = [...BASE_RATES];
+  const baseRates = [...BASE_RATES];
   const values = [847, 312, 154, 98, 41, 203, 189];
   const pills = document.querySelectorAll('.resource-pill .res-value');
 
   function startResourceTick() {
     setInterval(() => {
       rates.forEach((r, i) => {
-        values[i] += r / 60;
+        values[i] += r / 3600; // per second
         if (pills[i]) pills[i].textContent = Math.floor(values[i]);
       });
     }, 1000);
+  }
+
+  // Start planetary hour engine once we have coords
+  // Called from initMap
+  let phLat = 46.1713, phLng = 9.8694;
+  function startPlanetaryHourEngine(lat, lng) {
+    phLat = lat; phLng = lng;
+    renderPlanetaryHour(lat, lng);
+    // Re-render every 30 seconds
+    setInterval(() => renderPlanetaryHour(phLat, phLng), 30000);
   }
 
   // ══════════════════════════════════════════
