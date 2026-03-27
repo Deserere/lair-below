@@ -1,0 +1,2455 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>THE LAIR BELOW</title>
+<link href="https://fonts.googleapis.com/css2?family=UnifrakturMaguntia&family=IM+Fell+English:ital@0;1&family=Cinzel:wght@400;600;900&family=Cinzel+Decorative:wght@400;900&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css"/>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+<style>
+  :root {
+    --void: #050407;
+    --abyss: #0a080f;
+    --deep: #100c1a;
+    --shadow: #1a1326;
+    --dusk: #241c33;
+    --stone: #2e2440;
+    --ash: #4a3d5c;
+    --mist: #6b5c80;
+    --pale: #9b8aaa;
+    --bone: #c4b5d4;
+    --ghost: #e8dff0;
+    
+    --gold: #c9a84c;
+    --gold-bright: #f0cc6a;
+    --gold-dim: #7a5f2a;
+    --crimson: #8b1a1a;
+    --crimson-bright: #c43030;
+    --viridian: #1a4a3a;
+    --viridian-bright: #2d7a5f;
+    --indigo: #1a1a5c;
+    --indigo-bright: #3d3daa;
+    --amber: #8b5a00;
+    --amber-bright: #d4890a;
+
+    /* Planetary colors */
+    --saturn: #8b7355;
+    --jupiter: #6b4c8b;
+    --mars: #8b2020;
+    --sun: #c9a84c;
+    --venus: #5c8b5c;
+    --mercury: #4a7a8b;
+    --moon: #8b8ba0;
+
+    --panel-bg: rgba(10, 8, 15, 0.96);
+    --border: rgba(201, 168, 76, 0.25);
+    --border-bright: rgba(201, 168, 76, 0.6);
+    --text-primary: #c4b5d4;
+    --text-secondary: #6b5c80;
+    --text-accent: #c9a84c;
+
+    --ff-title: 'UnifrakturMaguntia', serif;
+    --ff-heading: 'Cinzel', serif;
+    --ff-heading-deco: 'Cinzel Decorative', serif;
+    --ff-body: 'IM Fell English', serif;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+
+  body {
+    background: var(--void);
+    color: var(--text-primary);
+    font-family: var(--ff-body);
+    min-height: 100vh;
+    overflow-x: hidden;
+    position: relative;
+  }
+
+  /* Atmospheric background */
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background: 
+      radial-gradient(ellipse at 20% 20%, rgba(139, 26, 26, 0.06) 0%, transparent 50%),
+      radial-gradient(ellipse at 80% 80%, rgba(26, 26, 92, 0.08) 0%, transparent 50%),
+      radial-gradient(ellipse at 50% 50%, rgba(26, 19, 38, 0.9) 0%, transparent 80%);
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  /* Grain texture */
+  body::after {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='0.04'/%3E%3C/svg%3E");
+    pointer-events: none;
+    z-index: 1;
+    opacity: 0.4;
+  }
+
+  #app {
+    position: relative;
+    z-index: 2;
+    max-width: 430px;
+    margin: 0 auto;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+  }
+
+  /* ═══════════════════════════════════════
+     SPLASH / INTRO SCREEN
+  ═══════════════════════════════════════ */
+  #splash {
+    position: fixed;
+    inset: 0;
+    z-index: 1000;
+    background: var(--void);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 2rem;
+    transition: opacity 1.5s ease, transform 1.5s ease;
+  }
+
+  #splash.hidden {
+    opacity: 0;
+    pointer-events: none;
+    transform: scale(0.97);
+  }
+
+  .splash-sigil {
+    width: 120px;
+    height: 120px;
+    margin-bottom: 2rem;
+    animation: pulse-sigil 4s ease-in-out infinite;
+  }
+
+  @keyframes pulse-sigil {
+    0%, 100% { filter: drop-shadow(0 0 8px rgba(201,168,76,0.3)); opacity: 0.8; }
+    50% { filter: drop-shadow(0 0 20px rgba(201,168,76,0.7)); opacity: 1; }
+  }
+
+  .splash-title {
+    font-family: var(--ff-title);
+    font-size: 3.2rem;
+    color: var(--gold);
+    text-align: center;
+    line-height: 1;
+    text-shadow: 0 0 30px rgba(201,168,76,0.4), 0 0 60px rgba(201,168,76,0.2);
+    margin-bottom: 0.5rem;
+    letter-spacing: 2px;
+  }
+
+  .splash-subtitle {
+    font-family: var(--ff-heading);
+    font-size: 0.65rem;
+    letter-spacing: 0.35em;
+    color: var(--text-secondary);
+    text-transform: uppercase;
+    margin-bottom: 3rem;
+  }
+
+  .splash-text {
+    font-family: var(--ff-body);
+    font-style: italic;
+    color: var(--pale);
+    font-size: 0.95rem;
+    line-height: 1.8;
+    text-align: center;
+    max-width: 320px;
+    margin-bottom: 3rem;
+    opacity: 0;
+    animation: fade-in 2s ease 1s forwards;
+  }
+
+  @keyframes fade-in {
+    to { opacity: 1; }
+  }
+
+  .btn-primary {
+    font-family: var(--ff-heading);
+    font-size: 0.75rem;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    color: var(--gold);
+    background: transparent;
+    border: 1px solid var(--gold-dim);
+    padding: 0.9rem 2.5rem;
+    cursor: pointer;
+    position: relative;
+    transition: all 0.3s ease;
+    opacity: 0;
+    animation: fade-in 1s ease 2.5s forwards;
+  }
+
+  .btn-primary::before {
+    content: '';
+    position: absolute;
+    inset: -1px;
+    border: 1px solid transparent;
+    background: linear-gradient(135deg, rgba(201,168,76,0.1), transparent) border-box;
+    transition: all 0.3s ease;
+  }
+
+  .btn-primary:active {
+    background: rgba(201,168,76,0.1);
+    border-color: var(--gold);
+    box-shadow: 0 0 20px rgba(201,168,76,0.3);
+  }
+
+  .splash-warning {
+    position: absolute;
+    bottom: 2rem;
+    font-family: var(--ff-heading);
+    font-size: 0.5rem;
+    letter-spacing: 0.15em;
+    color: var(--stone);
+    text-align: center;
+    text-transform: uppercase;
+    padding: 0 2rem;
+  }
+
+  /* ═══════════════════════════════════════
+     TOP STATUS BAR
+  ═══════════════════════════════════════ */
+  #topbar {
+    background: linear-gradient(180deg, rgba(5,4,7,0.98) 0%, rgba(10,8,15,0.95) 100%);
+    border-bottom: 1px solid var(--border);
+    padding: 0.6rem 1rem;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    position: sticky;
+    top: 0;
+    z-index: 100;
+  }
+
+  .topbar-title {
+    font-family: var(--ff-title);
+    font-size: 1.4rem;
+    color: var(--gold);
+    letter-spacing: 1px;
+  }
+
+  .topbar-location {
+    font-family: var(--ff-heading);
+    font-size: 0.5rem;
+    letter-spacing: 0.12em;
+    color: var(--text-secondary);
+    text-transform: uppercase;
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+  }
+
+  .location-dot {
+    width: 5px;
+    height: 5px;
+    border-radius: 50%;
+    background: var(--viridian-bright);
+    animation: blink 2s ease-in-out infinite;
+  }
+
+  @keyframes blink {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.3; }
+  }
+
+  /* ═══════════════════════════════════════
+     PLANETARY RESOURCES BAR
+  ═══════════════════════════════════════ */
+  #resources {
+    background: var(--panel-bg);
+    border-bottom: 1px solid var(--border);
+    padding: 0.6rem 0.5rem;
+    overflow-x: auto;
+    scrollbar-width: none;
+  }
+
+  #resources::-webkit-scrollbar { display: none; }
+
+  .resources-inner {
+    display: flex;
+    gap: 0.4rem;
+    min-width: max-content;
+    padding: 0 0.3rem;
+  }
+
+  .resource-pill {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.2rem;
+    padding: 0.4rem 0.55rem;
+    border: 1px solid rgba(255,255,255,0.06);
+    border-radius: 2px;
+    background: rgba(255,255,255,0.02);
+    min-width: 52px;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .resource-pill::before {
+    content: '';
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    height: 2px;
+    background: var(--res-color, var(--gold));
+    opacity: 0.6;
+    transform: scaleX(var(--fill, 0.5));
+    transform-origin: left;
+    transition: transform 1s ease;
+  }
+
+  .res-symbol {
+    font-size: 1rem;
+    line-height: 1;
+  }
+
+  .res-name {
+    font-family: var(--ff-heading);
+    font-size: 0.38rem;
+    letter-spacing: 0.1em;
+    color: var(--text-secondary);
+    text-transform: uppercase;
+  }
+
+  .res-value {
+    font-family: var(--ff-heading);
+    font-size: 0.72rem;
+    font-weight: 600;
+    color: var(--res-color, var(--bone));
+  }
+
+  .res-rate {
+    font-family: var(--ff-body);
+    font-size: 0.5rem;
+    font-style: italic;
+    color: var(--text-secondary);
+  }
+
+  /* Planet highlight when in dominion */
+  .resource-pill.dominant {
+    border-color: var(--res-color, var(--gold));
+    box-shadow: 0 0 10px rgba(var(--res-rgb, 201,168,76), 0.15);
+    background: rgba(var(--res-rgb, 201,168,76), 0.05);
+  }
+
+  /* ═══════════════════════════════════════
+     MAIN CONTENT AREA
+  ═══════════════════════════════════════ */
+  #main {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+  }
+
+  /* Tabs */
+  #tabs {
+    display: flex;
+    border-bottom: 1px solid var(--border);
+    background: rgba(5,4,7,0.95);
+    position: sticky;
+    top: 61px;
+    z-index: 90;
+  }
+
+  .tab {
+    flex: 1;
+    padding: 0.7rem 0.2rem;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.2rem;
+    cursor: pointer;
+    border-bottom: 2px solid transparent;
+    transition: all 0.2s ease;
+    background: none;
+    border: none;
+    color: var(--text-secondary);
+  }
+
+  .tab.active {
+    color: var(--gold);
+    border-bottom: 2px solid var(--gold);
+    background: rgba(201,168,76,0.04);
+  }
+
+  .tab-icon { font-size: 1.1rem; }
+  .tab-label {
+    font-family: var(--ff-heading);
+    font-size: 0.38rem;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+  }
+
+  /* Tab panels */
+  .tab-panel { display: none; padding: 1rem; }
+  .tab-panel.active { display: block; }
+
+  /* ═══════════════════════════════════════
+     JOURNAL / NARRATIVE PANEL
+  ═══════════════════════════════════════ */
+  .journal-entry {
+    border-left: 2px solid var(--border);
+    padding: 0.8rem 1rem;
+    margin-bottom: 1rem;
+    position: relative;
+    background: linear-gradient(90deg, rgba(201,168,76,0.03) 0%, transparent 100%);
+    animation: entry-appear 0.5s ease;
+  }
+
+  @keyframes entry-appear {
+    from { opacity: 0; transform: translateY(8px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  .journal-entry.urgent {
+    border-left-color: var(--crimson-bright);
+    background: linear-gradient(90deg, rgba(139,26,26,0.06) 0%, transparent 100%);
+  }
+
+  .journal-entry.discovery {
+    border-left-color: var(--indigo-bright);
+    background: linear-gradient(90deg, rgba(61,61,170,0.06) 0%, transparent 100%);
+  }
+
+  .entry-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    margin-bottom: 0.5rem;
+  }
+
+  .entry-title {
+    font-family: var(--ff-heading);
+    font-size: 0.7rem;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--gold);
+  }
+
+  .entry-time {
+    font-family: var(--ff-body);
+    font-size: 0.6rem;
+    font-style: italic;
+    color: var(--text-secondary);
+  }
+
+  .entry-body {
+    font-family: var(--ff-body);
+    font-style: italic;
+    font-size: 0.88rem;
+    line-height: 1.75;
+    color: var(--pale);
+  }
+
+  .entry-body em {
+    color: var(--gold);
+    font-style: normal;
+  }
+
+  .entry-actions {
+    display: flex;
+    gap: 0.5rem;
+    margin-top: 0.8rem;
+    flex-wrap: wrap;
+  }
+
+  .btn-action {
+    font-family: var(--ff-heading);
+    font-size: 0.55rem;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    padding: 0.45rem 0.9rem;
+    border: 1px solid var(--border);
+    background: transparent;
+    color: var(--text-primary);
+    cursor: pointer;
+    transition: all 0.2s ease;
+  }
+
+  .btn-action:active { background: rgba(201,168,76,0.1); border-color: var(--gold); color: var(--gold); }
+  .btn-action.danger { border-color: rgba(139,26,26,0.4); color: var(--crimson-bright); }
+  .btn-action.danger:active { background: rgba(139,26,26,0.15); }
+  .btn-action.primary { border-color: var(--gold-dim); color: var(--gold); }
+  .btn-action.primary:active { background: rgba(201,168,76,0.12); }
+
+  /* ═══════════════════════════════════════
+     MAP / FIELD PANEL
+  ═══════════════════════════════════════ */
+  .map-container {
+    border: 1px solid var(--border);
+    background: var(--abyss);
+    position: relative;
+    overflow: hidden;
+    margin-bottom: 1rem;
+    height: 320px;
+  }
+
+  #leaflet-map {
+    width: 100%;
+    height: 100%;
+    background: var(--abyss);
+  }
+
+  /* Dark vignette over map edges */
+  .map-vignette {
+    position: absolute;
+    inset: 0;
+    background: radial-gradient(ellipse at 50% 50%, transparent 55%, rgba(5,4,7,0.75) 100%);
+    pointer-events: none;
+    z-index: 400;
+  }
+
+  /* CartoDB Dark Matter — already dark, just add a subtle occult tint */
+  .leaflet-tile {
+    filter: sepia(0.25) hue-rotate(200deg) brightness(0.85) !important;
+  }
+
+  .leaflet-container {
+    background: var(--void) !important;
+    font-family: var(--ff-heading) !important;
+  }
+
+  /* Hide Leaflet attribution (keep it accessible but subtle) */
+  .leaflet-control-attribution {
+    background: rgba(5,4,7,0.7) !important;
+    color: var(--text-secondary) !important;
+    font-size: 0.45rem !important;
+    border-radius: 0 !important;
+  }
+
+  .leaflet-control-attribution a { color: var(--gold-dim) !important; }
+
+  /* Custom marker styles via Leaflet DivIcon */
+  .llair-player {
+    width: 18px; height: 18px;
+    background: var(--gold);
+    border-radius: 50%;
+    box-shadow: 0 0 0 5px rgba(201,168,76,0.25), 0 0 18px rgba(201,168,76,0.6);
+    animation: pulse-ring 2s ease-in-out infinite;
+  }
+
+  @keyframes pulse-ring {
+    0%, 100% { box-shadow: 0 0 0 4px rgba(201,168,76,0.2), 0 0 15px rgba(201,168,76,0.5); }
+    50% { box-shadow: 0 0 0 9px rgba(201,168,76,0.05), 0 0 25px rgba(201,168,76,0.7); }
+  }
+
+  .llair-mission {
+    width: 14px; height: 14px;
+    border-radius: 50%;
+    border: 2px solid rgba(255,255,255,0.3);
+    animation: flicker 3s ease-in-out infinite;
+    cursor: pointer;
+  }
+
+  @keyframes flicker {
+    0%, 90%, 100% { opacity: 1; }
+    95% { opacity: 0.4; }
+  }
+
+  .llair-mission.combat { background: var(--crimson-bright); box-shadow: 0 0 10px var(--crimson-bright); border-color: rgba(196,48,48,0.5); }
+  .llair-mission.story   { background: var(--indigo-bright); box-shadow: 0 0 10px var(--indigo-bright); border-color: rgba(61,61,170,0.5); }
+  .llair-mission.gather  { background: var(--viridian-bright); box-shadow: 0 0 10px var(--viridian-bright); border-color: rgba(45,122,95,0.5); }
+  .llair-mission.recruit { background: var(--amber-bright); box-shadow: 0 0 10px var(--amber-bright); border-color: rgba(212,137,10,0.5); }
+
+  /* Leaflet popup styling */
+  .leaflet-popup-content-wrapper {
+    background: var(--deep) !important;
+    border: 1px solid var(--border-bright) !important;
+    border-radius: 0 !important;
+    box-shadow: 0 0 20px rgba(201,168,76,0.2) !important;
+    color: var(--bone) !important;
+    font-family: var(--ff-body) !important;
+    font-style: italic;
+    font-size: 0.82rem !important;
+  }
+
+  .leaflet-popup-tip { background: var(--deep) !important; }
+
+  .leaflet-popup-close-button {
+    color: var(--gold) !important;
+    font-size: 1rem !important;
+  }
+
+  .popup-title {
+    font-family: var(--ff-heading);
+    font-style: normal;
+    font-size: 0.65rem;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--gold);
+    margin-bottom: 0.4rem;
+  }
+
+  .popup-btn {
+    display: inline-block;
+    margin-top: 0.6rem;
+    font-family: var(--ff-heading);
+    font-size: 0.55rem;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    padding: 0.35rem 0.8rem;
+    border: 1px solid var(--gold-dim);
+    color: var(--gold);
+    cursor: pointer;
+    background: transparent;
+    font-style: normal;
+  }
+
+  /* Map loading state */
+  .map-loading {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    background: var(--abyss);
+    z-index: 500;
+    gap: 0.8rem;
+    pointer-events: none;
+    transition: opacity 0.8s ease;
+  }
+
+  .map-loading.hidden { opacity: 0; }
+
+  .map-loading-symbol {
+    font-size: 2rem;
+    animation: pulse-sigil 2s ease-in-out infinite;
+  }
+
+  .map-loading-text {
+    font-family: var(--ff-heading);
+    font-size: 0.55rem;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    color: var(--text-secondary);
+  }
+
+  .mission-marker { display: none; } /* hide old absolute markers */
+
+  .map-legend {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 0.4rem;
+    margin-bottom: 1rem;
+  }
+
+  .legend-item {
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+    font-family: var(--ff-heading);
+    font-size: 0.5rem;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--text-secondary);
+  }
+
+  .legend-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    flex-shrink: 0;
+  }
+
+  /* Mission cards */
+  .mission-card {
+    border: 1px solid var(--border);
+    padding: 0.9rem;
+    margin-bottom: 0.7rem;
+    background: rgba(255,255,255,0.01);
+    position: relative;
+    overflow: hidden;
+    cursor: pointer;
+    transition: all 0.2s ease;
+  }
+
+  .mission-card::before {
+    content: '';
+    position: absolute;
+    left: 0;
+    top: 0;
+    bottom: 0;
+    width: 3px;
+    background: var(--mission-color, var(--gold));
+  }
+
+  .mission-card:active { background: rgba(255,255,255,0.03); }
+
+  .mission-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 0.5rem;
+    margin-bottom: 0.5rem;
+  }
+
+  .mission-title {
+    font-family: var(--ff-heading);
+    font-size: 0.72rem;
+    letter-spacing: 0.06em;
+    color: var(--bone);
+  }
+
+  .mission-badge {
+    font-family: var(--ff-heading);
+    font-size: 0.42rem;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    padding: 0.2rem 0.5rem;
+    border: 1px solid currentColor;
+    white-space: nowrap;
+    flex-shrink: 0;
+  }
+
+  .mission-badge.combat { color: var(--crimson-bright); }
+  .mission-badge.story { color: var(--indigo-bright); }
+  .mission-badge.recruit { color: var(--amber-bright); }
+
+  .mission-desc {
+    font-family: var(--ff-body);
+    font-style: italic;
+    font-size: 0.8rem;
+    color: var(--mist);
+    line-height: 1.6;
+    margin-bottom: 0.6rem;
+  }
+
+  .mission-meta {
+    display: flex;
+    gap: 1rem;
+    font-family: var(--ff-heading);
+    font-size: 0.48rem;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--text-secondary);
+  }
+
+  .mission-meta span { display: flex; align-items: center; gap: 0.3rem; }
+
+  /* ═══════════════════════════════════════
+     CHARACTER / ACOLYTES PANEL
+  ═══════════════════════════════════════ */
+  .char-header {
+    display: flex;
+    gap: 1rem;
+    align-items: flex-start;
+    margin-bottom: 1.2rem;
+    padding-bottom: 1rem;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .char-avatar {
+    width: 70px;
+    height: 70px;
+    border: 1px solid var(--border-bright);
+    background: var(--deep);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 2rem;
+    flex-shrink: 0;
+    position: relative;
+  }
+
+  .char-avatar::after {
+    content: '';
+    position: absolute;
+    inset: 3px;
+    border: 1px solid rgba(201,168,76,0.1);
+  }
+
+  .char-info { flex: 1; }
+
+  .char-name {
+    font-family: var(--ff-heading);
+    font-size: 1rem;
+    letter-spacing: 0.08em;
+    color: var(--bone);
+    margin-bottom: 0.2rem;
+  }
+
+  .char-class {
+    font-family: var(--ff-body);
+    font-style: italic;
+    font-size: 0.78rem;
+    color: var(--gold);
+    margin-bottom: 0.5rem;
+  }
+
+  .char-xp-bar {
+    height: 3px;
+    background: var(--stone);
+    position: relative;
+    margin-bottom: 0.4rem;
+  }
+
+  .char-xp-fill {
+    position: absolute;
+    left: 0;
+    top: 0;
+    bottom: 0;
+    background: var(--gold);
+    transition: width 1s ease;
+  }
+
+  .char-xp-label {
+    font-family: var(--ff-heading);
+    font-size: 0.45rem;
+    letter-spacing: 0.1em;
+    color: var(--text-secondary);
+    text-transform: uppercase;
+  }
+
+  .stats-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 0.5rem;
+    margin-bottom: 1.2rem;
+  }
+
+  .stat-block {
+    border: 1px solid var(--border);
+    padding: 0.6rem;
+    background: rgba(255,255,255,0.01);
+    position: relative;
+    overflow: hidden;
+  }
+
+  .stat-block::before {
+    content: '';
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    height: 2px;
+    background: var(--stat-color, var(--gold));
+    opacity: 0.5;
+  }
+
+  .stat-element {
+    font-family: var(--ff-heading);
+    font-size: 0.42rem;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--stat-color, var(--text-secondary));
+    margin-bottom: 0.4rem;
+    display: flex;
+    align-items: center;
+    gap: 0.3rem;
+  }
+
+  .stat-rows { display: flex; flex-direction: column; gap: 0.3rem; }
+
+  .stat-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+
+  .stat-name {
+    font-family: var(--ff-body);
+    font-style: italic;
+    font-size: 0.72rem;
+    color: var(--pale);
+  }
+
+  .stat-val {
+    font-family: var(--ff-heading);
+    font-size: 0.7rem;
+    font-weight: 600;
+    color: var(--bone);
+  }
+
+  .stat-val.boosted { color: var(--viridian-bright); }
+  .stat-val.cursed { color: var(--crimson-bright); }
+
+  /* Full-width aether stat */
+  .stat-block.aether {
+    grid-column: 1 / -1;
+    background: rgba(61,61,170,0.04);
+    border-color: rgba(61,61,170,0.3);
+  }
+
+  .stat-block.aether::before { background: var(--indigo-bright); }
+
+  .aether-bar {
+    height: 6px;
+    background: var(--stone);
+    border-radius: 0;
+    margin-top: 0.5rem;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .aether-fill {
+    position: absolute;
+    left: 0;
+    top: 0;
+    bottom: 0;
+    background: linear-gradient(90deg, var(--indigo-bright), rgba(130,80,200,0.8));
+    transition: width 1s ease;
+    box-shadow: 0 0 8px rgba(61,61,170,0.5);
+  }
+
+  /* Acolyte cards */
+  .acolyte-card {
+    border: 1px solid var(--border);
+    padding: 0.8rem;
+    margin-bottom: 0.6rem;
+    display: flex;
+    gap: 0.8rem;
+    align-items: center;
+    background: rgba(255,255,255,0.01);
+    cursor: pointer;
+    transition: all 0.2s ease;
+  }
+
+  .acolyte-card:active { border-color: var(--gold); }
+
+  .acolyte-avatar {
+    width: 48px;
+    height: 48px;
+    border: 1px solid var(--border);
+    background: var(--deep);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.4rem;
+    flex-shrink: 0;
+  }
+
+  .acolyte-info { flex: 1; }
+  .acolyte-name {
+    font-family: var(--ff-heading);
+    font-size: 0.7rem;
+    letter-spacing: 0.06em;
+    color: var(--bone);
+    margin-bottom: 0.15rem;
+  }
+  .acolyte-class {
+    font-family: var(--ff-body);
+    font-style: italic;
+    font-size: 0.68rem;
+    color: var(--gold);
+    margin-bottom: 0.3rem;
+  }
+
+  .stress-bar {
+    height: 3px;
+    background: var(--stone);
+    position: relative;
+  }
+  .stress-fill {
+    position: absolute;
+    left: 0; top: 0; bottom: 0;
+    background: linear-gradient(90deg, var(--viridian-bright), var(--amber-bright), var(--crimson-bright));
+    transition: width 1s ease;
+  }
+
+  .acolyte-states {
+    display: flex;
+    gap: 0.3rem;
+    margin-top: 0.3rem;
+    flex-wrap: wrap;
+  }
+
+  .state-tag {
+    font-family: var(--ff-heading);
+    font-size: 0.38rem;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    padding: 0.15rem 0.4rem;
+    border: 1px solid currentColor;
+  }
+
+  .state-tag.affliction { color: var(--crimson-bright); }
+  .state-tag.virtue { color: var(--viridian-bright); }
+  .state-tag.quirk { color: var(--amber-bright); }
+
+  /* ═══════════════════════════════════════
+     LAIR / BASE PANEL
+  ═══════════════════════════════════════ */
+  .section-label {
+    font-family: var(--ff-heading);
+    font-size: 0.55rem;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    color: var(--text-secondary);
+    margin-bottom: 0.8rem;
+    padding-bottom: 0.4rem;
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+  }
+
+  .section-label::after {
+    content: '';
+    flex: 1;
+    height: 1px;
+    background: var(--border);
+  }
+
+  .building-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 0.6rem;
+    margin-bottom: 1.5rem;
+  }
+
+  .building-card {
+    border: 1px solid var(--border);
+    padding: 0.8rem 0.7rem;
+    background: rgba(255,255,255,0.01);
+    cursor: pointer;
+    position: relative;
+    overflow: hidden;
+    transition: all 0.2s ease;
+  }
+
+  .building-card.locked {
+    opacity: 0.5;
+    filter: grayscale(0.5);
+  }
+
+  .building-card.locked::after {
+    content: '⛧';
+    position: absolute;
+    top: 50%;
+    right: 0.6rem;
+    transform: translateY(-50%);
+    font-size: 0.9rem;
+    opacity: 0.4;
+  }
+
+  .building-card:not(.locked):active { border-color: var(--gold); }
+
+  .building-icon { font-size: 1.5rem; margin-bottom: 0.4rem; display: block; }
+
+  .building-name {
+    font-family: var(--ff-heading);
+    font-size: 0.62rem;
+    letter-spacing: 0.06em;
+    color: var(--bone);
+    margin-bottom: 0.2rem;
+  }
+
+  .building-desc {
+    font-family: var(--ff-body);
+    font-style: italic;
+    font-size: 0.65rem;
+    color: var(--mist);
+    line-height: 1.5;
+  }
+
+  .building-level {
+    position: absolute;
+    top: 0.5rem;
+    right: 0.5rem;
+    font-family: var(--ff-heading);
+    font-size: 0.45rem;
+    letter-spacing: 0.1em;
+    color: var(--gold-dim);
+    text-transform: uppercase;
+  }
+
+  /* ═══════════════════════════════════════
+     ARCANA / TAROT PANEL
+  ═══════════════════════════════════════ */
+  .tarot-spread-area {
+    border: 1px solid var(--border);
+    background: rgba(5,4,7,0.8);
+    padding: 1.5rem 1rem;
+    margin-bottom: 1rem;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .tarot-spread-area::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: radial-gradient(ellipse at 50% 50%, rgba(61,61,170,0.08) 0%, transparent 70%);
+  }
+
+  .spread-title {
+    font-family: var(--ff-heading);
+    font-size: 0.6rem;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    color: var(--text-secondary);
+    text-align: center;
+    margin-bottom: 1.2rem;
+  }
+
+  .cards-row {
+    display: flex;
+    justify-content: center;
+    gap: 0.5rem;
+    margin-bottom: 1rem;
+    position: relative;
+    z-index: 1;
+  }
+
+  .tarot-card {
+    width: 60px;
+    height: 95px;
+    border: 1px solid var(--border-bright);
+    background: linear-gradient(135deg, var(--deep), var(--abyss));
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 0.3rem;
+    cursor: pointer;
+    position: relative;
+    overflow: hidden;
+    transition: all 0.3s ease;
+    flex-shrink: 0;
+  }
+
+  .tarot-card.revealed {
+    background: linear-gradient(135deg, var(--shadow), var(--deep));
+    border-color: var(--gold-dim);
+    box-shadow: 0 0 15px rgba(61,61,170,0.2);
+  }
+
+  .tarot-card.reversed { transform: rotate(180deg); }
+
+  .tarot-card::before {
+    content: '';
+    position: absolute;
+    inset: 3px;
+    border: 1px solid rgba(201,168,76,0.08);
+  }
+
+  .tarot-card-symbol { font-size: 1.6rem; }
+
+  .tarot-card-name {
+    font-family: var(--ff-heading);
+    font-size: 0.32rem;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--gold-dim);
+    text-align: center;
+    padding: 0 0.2rem;
+    line-height: 1.3;
+  }
+
+  .tarot-card-num {
+    font-family: var(--ff-heading);
+    font-size: 0.45rem;
+    color: var(--text-secondary);
+  }
+
+  .tarot-card.face-down .tarot-card-symbol,
+  .tarot-card.face-down .tarot-card-name,
+  .tarot-card.face-down .tarot-card-num { display: none; }
+
+  .tarot-card.face-down::after {
+    content: '✦';
+    font-size: 1.8rem;
+    color: var(--gold-dim);
+    opacity: 0.4;
+  }
+
+  .spread-effects {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    gap: 0.4rem;
+    position: relative;
+    z-index: 1;
+  }
+
+  .effect-tag {
+    text-align: center;
+    padding: 0.4rem;
+    border: 1px solid var(--border);
+    background: rgba(255,255,255,0.02);
+  }
+
+  .effect-name {
+    font-family: var(--ff-heading);
+    font-size: 0.42rem;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--text-secondary);
+    margin-bottom: 0.2rem;
+  }
+
+  .effect-val {
+    font-family: var(--ff-heading);
+    font-size: 0.7rem;
+    font-weight: 600;
+  }
+
+  .effect-val.pos { color: var(--viridian-bright); }
+  .effect-val.neg { color: var(--crimson-bright); }
+
+  /* Research */
+  .research-item {
+    border: 1px solid var(--border);
+    padding: 0.9rem;
+    margin-bottom: 0.6rem;
+    position: relative;
+    cursor: pointer;
+    background: rgba(255,255,255,0.01);
+  }
+
+  .research-item.active { border-color: var(--gold-dim); }
+  .research-item.completed { opacity: 0.6; }
+
+  .research-name {
+    font-family: var(--ff-heading);
+    font-size: 0.7rem;
+    letter-spacing: 0.06em;
+    color: var(--bone);
+    margin-bottom: 0.3rem;
+  }
+
+  .research-desc {
+    font-family: var(--ff-body);
+    font-style: italic;
+    font-size: 0.78rem;
+    color: var(--mist);
+    line-height: 1.6;
+    margin-bottom: 0.6rem;
+  }
+
+  .research-progress {
+    height: 2px;
+    background: var(--stone);
+    margin-bottom: 0.4rem;
+  }
+
+  .research-fill {
+    height: 100%;
+    background: var(--gold-dim);
+    transition: width 1s ease;
+  }
+
+  .research-meta {
+    display: flex;
+    justify-content: space-between;
+    font-family: var(--ff-heading);
+    font-size: 0.45rem;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--text-secondary);
+  }
+
+  /* ═══════════════════════════════════════
+     COMBAT MODAL
+  ═══════════════════════════════════════ */
+  #combat-modal {
+    position: fixed;
+    inset: 0;
+    z-index: 500;
+    background: rgba(5,4,7,0.97);
+    display: none;
+    flex-direction: column;
+    overflow-y: auto;
+  }
+
+  #combat-modal.open { display: flex; }
+
+  .combat-top {
+    background: linear-gradient(180deg, rgba(139,26,26,0.15) 0%, transparent 100%);
+    border-bottom: 1px solid rgba(139,26,26,0.3);
+    padding: 1rem;
+    text-align: center;
+  }
+
+  .combat-title {
+    font-family: var(--ff-title);
+    font-size: 2rem;
+    color: var(--crimson-bright);
+    letter-spacing: 2px;
+    text-shadow: 0 0 20px rgba(196,48,48,0.5);
+    margin-bottom: 0.3rem;
+  }
+
+  .combat-turn {
+    font-family: var(--ff-heading);
+    font-size: 0.55rem;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    color: var(--text-secondary);
+  }
+
+  .combat-field {
+    padding: 1rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .combat-label {
+    font-family: var(--ff-heading);
+    font-size: 0.5rem;
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+    color: var(--text-secondary);
+    margin-bottom: 0.3rem;
+  }
+
+  .combatant {
+    border: 1px solid var(--border);
+    padding: 0.7rem 0.8rem;
+    background: rgba(255,255,255,0.01);
+    display: flex;
+    align-items: center;
+    gap: 0.8rem;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .combatant.enemy { border-color: rgba(139,26,26,0.3); }
+  .combatant.ally { border-color: rgba(45,122,95,0.3); }
+
+  .combatant-icon { font-size: 1.4rem; flex-shrink: 0; }
+
+  .combatant-info { flex: 1; }
+
+  .combatant-name {
+    font-family: var(--ff-heading);
+    font-size: 0.65rem;
+    letter-spacing: 0.06em;
+    color: var(--bone);
+    margin-bottom: 0.2rem;
+  }
+
+  .hp-bar {
+    height: 4px;
+    background: var(--stone);
+    margin-bottom: 0.15rem;
+  }
+
+  .hp-fill {
+    height: 100%;
+    background: var(--viridian-bright);
+    transition: width 0.5s ease;
+  }
+
+  .hp-fill.enemy { background: var(--crimson-bright); }
+
+  .combatant-stats {
+    font-family: var(--ff-heading);
+    font-size: 0.45rem;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--text-secondary);
+  }
+
+  .combat-log {
+    padding: 1rem;
+    border-bottom: 1px solid var(--border);
+    max-height: 120px;
+    overflow-y: auto;
+  }
+
+  .log-line {
+    font-family: var(--ff-body);
+    font-style: italic;
+    font-size: 0.8rem;
+    color: var(--mist);
+    line-height: 1.7;
+    padding: 0.1rem 0;
+  }
+
+  .log-line.hit { color: var(--crimson-bright); }
+  .log-line.crit { color: var(--gold); }
+  .log-line.dodge { color: var(--indigo-bright); }
+
+  .combat-actions {
+    padding: 1rem;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 0.5rem;
+  }
+
+  .combat-btn {
+    font-family: var(--ff-heading);
+    font-size: 0.6rem;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    padding: 0.8rem;
+    border: 1px solid var(--border);
+    background: transparent;
+    color: var(--text-primary);
+    cursor: pointer;
+    transition: all 0.2s ease;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.3rem;
+  }
+
+  .combat-btn:active { background: rgba(201,168,76,0.1); border-color: var(--gold); color: var(--gold); }
+  .combat-btn.dark:active { background: rgba(139,26,26,0.15); border-color: var(--crimson-bright); color: var(--crimson-bright); }
+
+  .combat-btn-icon { font-size: 1.2rem; }
+  .combat-cost {
+    font-size: 0.45rem;
+    color: var(--text-secondary);
+    letter-spacing: 0.08em;
+  }
+
+  .combat-close {
+    margin: 0 1rem 1rem;
+    font-family: var(--ff-heading);
+    font-size: 0.55rem;
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+    padding: 0.8rem;
+    border: 1px solid rgba(139,26,26,0.3);
+    background: transparent;
+    color: var(--text-secondary);
+    cursor: pointer;
+    text-align: center;
+    width: calc(100% - 2rem);
+  }
+
+  /* ═══════════════════════════════════════
+     PLANETARY HOURS INDICATOR
+  ═══════════════════════════════════════ */
+  .planet-hour-widget {
+    border: 1px solid var(--border);
+    padding: 0.9rem;
+    margin-bottom: 1rem;
+    background: rgba(255,255,255,0.01);
+    position: relative;
+    overflow: hidden;
+  }
+
+  .planet-hour-widget::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: radial-gradient(ellipse at 0% 100%, rgba(201,168,76,0.04) 0%, transparent 60%);
+  }
+
+  .ph-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 0.8rem;
+    position: relative;
+  }
+
+  .ph-title {
+    font-family: var(--ff-heading);
+    font-size: 0.55rem;
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+    color: var(--text-secondary);
+  }
+
+  .ph-planet {
+    font-family: var(--ff-body);
+    font-style: italic;
+    font-size: 1.1rem;
+    color: var(--gold);
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+  }
+
+  .ph-clock {
+    display: flex;
+    gap: 0.3rem;
+    align-items: center;
+  }
+
+  .ph-segment {
+    width: 18px;
+    height: 6px;
+    background: var(--stone);
+    position: relative;
+    overflow: hidden;
+  }
+
+  .ph-segment.filled { background: var(--gold-dim); }
+  .ph-segment.current { background: var(--gold); }
+
+  .ph-bonuses {
+    display: flex;
+    gap: 0.5rem;
+    flex-wrap: wrap;
+    position: relative;
+  }
+
+  .ph-bonus {
+    font-family: var(--ff-heading);
+    font-size: 0.48rem;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    padding: 0.25rem 0.5rem;
+    border: 1px solid var(--border);
+    color: var(--gold);
+  }
+
+  /* ═══════════════════════════════════════
+     NOTIFICATION TOAST
+  ═══════════════════════════════════════ */
+  #toasts {
+    position: fixed;
+    top: 1rem;
+    left: 50%;
+    transform: translateX(-50%);
+    z-index: 2000;
+    display: flex;
+    flex-direction: column;
+    gap: 0.4rem;
+    width: 340px;
+    max-width: calc(100vw - 2rem);
+    pointer-events: none;
+  }
+
+  .toast {
+    background: var(--deep);
+    border: 1px solid var(--border-bright);
+    padding: 0.7rem 1rem;
+    font-family: var(--ff-body);
+    font-style: italic;
+    font-size: 0.82rem;
+    color: var(--bone);
+    animation: toast-in 0.3s ease, toast-out 0.4s ease 3s forwards;
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+  }
+
+  @keyframes toast-in {
+    from { opacity: 0; transform: translateY(-10px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  @keyframes toast-out {
+    to { opacity: 0; transform: translateY(-10px); }
+  }
+
+  .toast-icon { font-size: 1rem; flex-shrink: 0; }
+
+  /* Ornamental divider */
+  .ornament {
+    text-align: center;
+    color: var(--gold-dim);
+    font-size: 0.9rem;
+    letter-spacing: 0.5rem;
+    margin: 0.8rem 0;
+    opacity: 0.5;
+  }
+
+  /* Scrollbar */
+  ::-webkit-scrollbar { width: 3px; height: 3px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: var(--stone); }
+</style>
+</head>
+<body>
+
+<!-- SPLASH SCREEN -->
+<div id="splash">
+  <svg class="splash-sigil" viewBox="0 0 120 120" xmlns="http://www.w3.org/2000/svg">
+    <circle cx="60" cy="60" r="55" fill="none" stroke="rgba(201,168,76,0.2)" stroke-width="0.5"/>
+    <circle cx="60" cy="60" r="45" fill="none" stroke="rgba(201,168,76,0.15)" stroke-width="0.5"/>
+    <!-- Pentagram -->
+    <polygon points="60,10 74,50 115,50 83,73 94,113 60,90 26,113 37,73 5,50 46,50" 
+             fill="none" stroke="rgba(201,168,76,0.5)" stroke-width="0.7"/>
+    <!-- Inner circle -->
+    <circle cx="60" cy="60" r="18" fill="none" stroke="rgba(201,168,76,0.3)" stroke-width="0.5"/>
+    <!-- Cross -->
+    <line x1="60" y1="42" x2="60" y2="78" stroke="rgba(201,168,76,0.4)" stroke-width="0.5"/>
+    <line x1="42" y1="60" x2="78" y2="60" stroke="rgba(201,168,76,0.4)" stroke-width="0.5"/>
+    <!-- Corner marks -->
+    <circle cx="60" cy="10" r="2" fill="rgba(201,168,76,0.6)"/>
+    <circle cx="60" cy="110" r="2" fill="rgba(201,168,76,0.6)"/>
+    <circle cx="10" cy="50" r="2" fill="rgba(201,168,76,0.6)"/>
+    <circle cx="110" cy="50" r="2" fill="rgba(201,168,76,0.6)"/>
+    <circle cx="60" cy="60" r="3" fill="rgba(201,168,76,0.8)"/>
+  </svg>
+
+  <h1 class="splash-title">The Lair Below</h1>
+  <p class="splash-subtitle">An Occult Urban Chronicle</p>
+
+  <p class="splash-text">
+    Something stirs beneath the cobblestones of <em id="splash-city">your city</em>.<br><br>
+    A door that should not exist.<br>
+    A staircase descending into impossible depths.<br><br>
+    The stars have noticed. They always do.
+  </p>
+
+  <button class="btn-primary" onclick="enterGame()">
+    DESCEND
+  </button>
+
+  <p class="splash-warning">
+    This chronicle records your passage through the world. GPS and planetary hours will shape your fate. Play responsibly. The lair remembers.
+  </p>
+</div>
+
+<!-- MAIN APP -->
+<div id="app" style="display:none;">
+
+  <!-- TOPBAR -->
+  <div id="topbar">
+    <span class="topbar-title">The Lair Below</span>
+    <div class="topbar-location">
+      <div class="location-dot"></div>
+      <span id="location-text">Locating...</span>
+    </div>
+  </div>
+
+  <!-- RESOURCES -->
+  <div id="resources">
+    <div class="resources-inner">
+      <div class="resource-pill dominant" style="--res-color:#c9a84c;--res-rgb:201,168,76;--fill:0.7">
+        <span class="res-symbol">☉</span>
+        <span class="res-name">Solar</span>
+        <span class="res-value">847</span>
+        <span class="res-rate">+3/h</span>
+      </div>
+      <div class="resource-pill" style="--res-color:#8b8ba0;--fill:0.4">
+        <span class="res-symbol">☽</span>
+        <span class="res-name">Lunar</span>
+        <span class="res-value">312</span>
+        <span class="res-rate">+7/h</span>
+      </div>
+      <div class="resource-pill" style="--res-color:#6b4c8b;--fill:0.55">
+        <span class="res-symbol">♃</span>
+        <span class="res-name">Jovian</span>
+        <span class="res-value">154</span>
+        <span class="res-rate">+1/h</span>
+      </div>
+      <div class="resource-pill" style="--res-color:#8b2020;--fill:0.3">
+        <span class="res-symbol">♂</span>
+        <span class="res-name">Martial</span>
+        <span class="res-value">98</span>
+        <span class="res-rate">+2/h</span>
+      </div>
+      <div class="resource-pill" style="--res-color:#8b7355;--fill:0.2">
+        <span class="res-symbol">♄</span>
+        <span class="res-name">Saturnine</span>
+        <span class="res-value">41</span>
+        <span class="res-rate">+0.5/h</span>
+      </div>
+      <div class="resource-pill" style="--res-color:#5c8b5c;--fill:0.6">
+        <span class="res-symbol">♀</span>
+        <span class="res-name">Venusian</span>
+        <span class="res-value">203</span>
+        <span class="res-rate">+4/h</span>
+      </div>
+      <div class="resource-pill" style="--res-color:#4a7a8b;--fill:0.45">
+        <span class="res-symbol">☿</span>
+        <span class="res-name">Mercurial</span>
+        <span class="res-value">189</span>
+        <span class="res-rate">+3/h</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- TABS -->
+  <div id="tabs">
+    <button class="tab active" onclick="switchTab('journal')">
+      <span class="tab-icon">📜</span>
+      <span class="tab-label">Journal</span>
+    </button>
+    <button class="tab" onclick="switchTab('field')">
+      <span class="tab-icon">🗺</span>
+      <span class="tab-label">Field</span>
+    </button>
+    <button class="tab" onclick="switchTab('company')">
+      <span class="tab-icon">👁</span>
+      <span class="tab-label">Company</span>
+    </button>
+    <button class="tab" onclick="switchTab('lair')">
+      <span class="tab-icon">🏚</span>
+      <span class="tab-label">Lair</span>
+    </button>
+    <button class="tab" onclick="switchTab('arcana')">
+      <span class="tab-icon">🌙</span>
+      <span class="tab-label">Arcana</span>
+    </button>
+  </div>
+
+  <!-- MAIN PANELS -->
+  <div id="main">
+
+    <!-- JOURNAL PANEL -->
+    <div id="panel-journal" class="tab-panel active">
+
+      <div class="planet-hour-widget">
+        <div class="ph-header">
+          <span class="ph-title">⌛ Planetary Hour</span>
+          <span class="ph-planet">☉ Sol Dominates</span>
+        </div>
+        <div class="ph-clock">
+          <div class="ph-segment filled"></div>
+          <div class="ph-segment filled"></div>
+          <div class="ph-segment filled"></div>
+          <div class="ph-segment current"></div>
+          <div class="ph-segment"></div>
+          <div class="ph-segment"></div>
+          <div class="ph-segment"></div>
+          <div class="ph-segment"></div>
+          <div class="ph-segment"></div>
+          <div class="ph-segment"></div>
+          <div class="ph-segment"></div>
+          <div class="ph-segment"></div>
+        </div>
+        <div style="margin-top:0.5rem;" class="ph-bonuses">
+          <span class="ph-bonus">+30% Solar Gain</span>
+          <span class="ph-bonus">Fire Rituals Empowered</span>
+          <span class="ph-bonus">Sight Sharpened</span>
+        </div>
+      </div>
+
+      <div class="journal-entry urgent">
+        <div class="entry-header">
+          <span class="entry-title">⚠ The Third Seal Trembles</span>
+          <span class="entry-time">4h ago</span>
+        </div>
+        <p class="entry-body">
+          The resonance in the Antechamber has grown unbearable. Brother Maurus found a new passage behind the fresco of <em>the Weeping Eye</em> — but he refuses to speak of what he glimpsed within. His stress is at breaking point.
+        </p>
+        <div class="entry-actions">
+          <button class="btn-action primary" onclick="showCombat()">Enter the Passage</button>
+          <button class="btn-action" onclick="toast('You send Maurus to rest in the Dormitorium.')">Rest Maurus</button>
+        </div>
+      </div>
+
+      <div class="journal-entry discovery">
+        <div class="entry-header">
+          <span class="entry-title">⬡ Glyph Sequence Decoded</span>
+          <span class="entry-time">Yesterday</span>
+        </div>
+        <p class="entry-body">
+          The Mercurial hour worked its gift: the spiral inscription on the eastern wall reveals itself as a <em>Chaldean planetary table</em>. Cross-referencing with the city's founding maps, three convergence points emerge above ground. They pulse during the Moon's hour.
+        </p>
+        <div class="entry-actions">
+          <button class="btn-action primary" onclick="switchTab('field')">Mark Convergences</button>
+          <button class="btn-action" onclick="switchTab('arcana')">Study Further</button>
+        </div>
+      </div>
+
+      <div class="journal-entry">
+        <div class="entry-header">
+          <span class="entry-title">✦ Acolyte Encountered</span>
+          <span class="entry-time">2 days ago</span>
+        </div>
+        <p class="entry-body">
+          Near the old market, a young woman named <em>Serena Falch</em> pressed a strange coin into your palm — the same sigil as the one above the lair's gate. She is waiting at the designated corner at dusk.
+        </p>
+        <div class="entry-actions">
+          <button class="btn-action primary" onclick="switchTab('field')">Go to Meeting</button>
+          <button class="btn-action" onclick="toast('You ignore the summons. The coin grows warm in your pocket.')">Ignore</button>
+        </div>
+      </div>
+
+      <div class="ornament">⋆ ✦ ⋆</div>
+
+      <div class="journal-entry">
+        <div class="entry-header">
+          <span class="entry-title">☽ Idle Report — Dawn</span>
+          <span class="entry-time">8h ago</span>
+        </div>
+        <p class="entry-body">
+          While you slept, the lair's mechanisms continued their slow accumulation. The <em>Lunar confluence</em> was favourable: +216 Lunar essence gathered. The Altar of Mercury processed two unfinished inscriptions. Brother Orin completed his transcription of the Third Grimoire.
+        </p>
+        <div class="entry-actions">
+          <button class="btn-action" onclick="toast('Resources claimed.')">Claim</button>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- FIELD PANEL -->
+    <div id="panel-field" class="tab-panel">
+
+      <div class="map-container">
+        <div id="leaflet-map"></div>
+        <div class="map-vignette"></div>
+        <div class="map-loading" id="map-loading">
+          <span class="map-loading-symbol">⛧</span>
+          <span class="map-loading-text">Divining Your Location...</span>
+        </div>
+      </div>
+
+      <div class="map-legend">
+        <div class="legend-item"><div class="legend-dot" style="background:var(--crimson-bright)"></div>Combat Encounter</div>
+        <div class="legend-item"><div class="legend-dot" style="background:var(--indigo-bright)"></div>Story Event</div>
+        <div class="legend-item"><div class="legend-dot" style="background:var(--viridian-bright)"></div>Convergence Point</div>
+        <div class="legend-item"><div class="legend-dot" style="background:var(--amber-bright)"></div>Recruit</div>
+      </div>
+
+      <div class="section-label">Active Missions</div>
+
+      <div class="mission-card" style="--mission-color:var(--crimson-bright)" onclick="showCombat()">
+        <div class="mission-header">
+          <span class="mission-title">The Writhing Threshold</span>
+          <span class="mission-badge combat">Combat</span>
+        </div>
+        <p class="mission-desc">Something has nested in the third sub-level. It breathes in rhythms that match no known creature. The seals are weakening from inside.</p>
+        <div class="mission-meta">
+          <span>⚠ Danger IV</span>
+          <span>⏱ 15 min</span>
+          <span>📍 340m away</span>
+        </div>
+      </div>
+
+      <div class="mission-card" style="--mission-color:var(--indigo-bright)" onclick="toast('You must go to the market in person to trigger this event.')">
+        <div class="mission-header">
+          <span class="mission-title">The Coin Bearer</span>
+          <span class="mission-badge story">Story</span>
+        </div>
+        <p class="mission-desc">Serena Falch carries a sigil she does not understand. She found it beneath the flagstones outside the old covered market. She wants answers. Perhaps you have some.</p>
+        <div class="mission-meta">
+          <span>⭐ Story</span>
+          <span>⏱ Dusk only</span>
+          <span>📍 1.2km away</span>
+        </div>
+      </div>
+
+      <div class="mission-card" style="--mission-color:var(--viridian-bright)" onclick="toast('Convergence Point active during Moon\'s hour only. Return then.')">
+        <div class="mission-header">
+          <span class="mission-title">Lunar Confluence — Via dei Fiori</span>
+          <span class="mission-badge" style="color:var(--viridian-bright);">Gather</span>
+        </div>
+        <p class="mission-desc">The decoded Chaldean table marks this crossroads as a point where Lunar essence pools during the Moon's planetary hour. Standing here then will massively accelerate your gathering.</p>
+        <div class="mission-meta">
+          <span>☽ Moon's hour</span>
+          <span>📍 780m away</span>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- COMPANY PANEL -->
+    <div id="panel-company" class="tab-panel">
+
+      <div class="section-label">The Seeker</div>
+
+      <div class="char-header">
+        <div class="char-avatar">🜏</div>
+        <div class="char-info">
+          <div class="char-name">The Archivist</div>
+          <div class="char-class">Hermeticist · Level 6</div>
+          <div class="char-xp-bar"><div class="char-xp-fill" style="width:72%"></div></div>
+          <div class="char-xp-label">4,320 / 6,000 XP</div>
+        </div>
+      </div>
+
+      <div class="stats-grid">
+        <div class="stat-block" style="--stat-color:#c43030">
+          <div class="stat-element">🜂 Fire</div>
+          <div class="stat-rows">
+            <div class="stat-row"><span class="stat-name">Fortitude</span><span class="stat-val">12</span></div>
+            <div class="stat-row"><span class="stat-name">Wrath</span><span class="stat-val boosted">9</span></div>
+          </div>
+        </div>
+        <div class="stat-block" style="--stat-color:#4a7a8b">
+          <div class="stat-element">🜄 Water</div>
+          <div class="stat-rows">
+            <div class="stat-row"><span class="stat-name">Intuition</span><span class="stat-val">14</span></div>
+            <div class="stat-row"><span class="stat-name">Empathy</span><span class="stat-val">11</span></div>
+          </div>
+        </div>
+        <div class="stat-block" style="--stat-color:#8b7355">
+          <div class="stat-element">🜃 Earth</div>
+          <div class="stat-rows">
+            <div class="stat-row"><span class="stat-name">Endurance</span><span class="stat-val">10</span></div>
+            <div class="stat-row"><span class="stat-name">Memory</span><span class="stat-val cursed">7</span></div>
+          </div>
+        </div>
+        <div class="stat-block" style="--stat-color:#6b9ac4">
+          <div class="stat-element">🜁 Air</div>
+          <div class="stat-rows">
+            <div class="stat-row"><span class="stat-name">Cunning</span><span class="stat-val">15</span></div>
+            <div class="stat-row"><span class="stat-name">Speed</span><span class="stat-val">13</span></div>
+          </div>
+        </div>
+        <div class="stat-block aether" style="--stat-color:#3d3daa">
+          <div class="stat-element">✦ Aether</div>
+          <div class="stat-rows">
+            <div class="stat-row">
+              <span class="stat-name">Gnosis</span>
+              <span class="stat-val" style="color:var(--indigo-bright)">22 / 30</span>
+            </div>
+          </div>
+          <div class="aether-bar"><div class="aether-fill" style="width:73%"></div></div>
+        </div>
+      </div>
+
+      <div class="section-label">Acolytes</div>
+
+      <div class="acolyte-card">
+        <div class="acolyte-avatar">🜃</div>
+        <div class="acolyte-info">
+          <div class="acolyte-name">Brother Maurus</div>
+          <div class="acolyte-class">Flagellant · Lv.4</div>
+          <div class="stress-bar"><div class="stress-fill" style="width:85%"></div></div>
+          <div class="acolyte-states">
+            <span class="state-tag affliction">Paranoid</span>
+            <span class="state-tag quirk">Masochistic</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="acolyte-card">
+        <div class="acolyte-avatar">🜁</div>
+        <div class="acolyte-info">
+          <div class="acolyte-name">Sister Irene Voss</div>
+          <div class="acolyte-class">Plague Scribe · Lv.3</div>
+          <div class="stress-bar"><div class="stress-fill" style="width:30%"></div></div>
+          <div class="acolyte-states">
+            <span class="state-tag virtue">Courageous</span>
+            <span class="state-tag quirk">Ink-Stained</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="acolyte-card" style="border-style:dashed;opacity:0.5;cursor:pointer" onclick="switchTab('field')">
+        <div class="acolyte-avatar" style="border-style:dashed">＋</div>
+        <div class="acolyte-info">
+          <div class="acolyte-name" style="color:var(--text-secondary)">Recruit a New Acolyte</div>
+          <div class="acolyte-class">Visit Field → Find Recruits</div>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- LAIR PANEL -->
+    <div id="panel-lair" class="tab-panel">
+
+      <div class="section-label">Lair Depth I — The Antechamber</div>
+
+      <div class="building-grid">
+        <div class="building-card">
+          <span class="building-level">Lv. 2</span>
+          <span class="building-icon">🕯</span>
+          <div class="building-name">The Scriptorium</div>
+          <p class="building-desc">Research grimoires. Unlock new skills and esoteric knowledge.</p>
+        </div>
+        <div class="building-card">
+          <span class="building-level">Lv. 1</span>
+          <span class="building-icon">⚗</span>
+          <div class="building-name">Alchemical Forge</div>
+          <p class="building-desc">Craft equipment and consumables from gathered essences.</p>
+        </div>
+        <div class="building-card">
+          <span class="building-level">Lv. 1</span>
+          <span class="building-icon">🛏</span>
+          <div class="building-name">Dormitorium</div>
+          <p class="building-desc">Acolytes recover Stress here. Haunted dreams may yield visions.</p>
+        </div>
+        <div class="building-card">
+          <span class="building-level">Lv. 2</span>
+          <span class="building-icon">🗿</span>
+          <div class="building-name">The Altar</div>
+          <p class="building-desc">Perform planetary rites. Empowers resource gathering by hour.</p>
+        </div>
+        <div class="building-card locked">
+          <span class="building-level">Locked</span>
+          <span class="building-icon">🔮</span>
+          <div class="building-name">Scrying Chamber</div>
+          <p class="building-desc">See further on the field map. Reveal hidden encounters.</p>
+        </div>
+        <div class="building-card locked">
+          <span class="building-level">Locked</span>
+          <span class="building-icon">🦴</span>
+          <div class="building-name">Ossuary</div>
+          <p class="building-desc">Extract Saturnine essence from the ancient dead within the walls.</p>
+        </div>
+      </div>
+
+      <div class="section-label">Research Queue</div>
+
+      <div class="research-item active">
+        <div class="research-name">Chaldean Planetary Correspondences — Vol. III</div>
+        <p class="research-desc">Detailed mapping of planetary hours to geographic loci. Will improve resource convergence detection radius by 40%.</p>
+        <div class="research-progress"><div class="research-fill" style="width:65%"></div></div>
+        <div class="research-meta">
+          <span>65% Complete</span>
+          <span>~6h remaining</span>
+        </div>
+      </div>
+
+      <div class="research-item">
+        <div class="research-name">The Doctrine of Signatures</div>
+        <p class="research-desc">Reveals hidden elemental affinities in city architecture. Unlocks the Stone Reader acolyte class.</p>
+        <div class="research-progress"><div class="research-fill" style="width:0%"></div></div>
+        <div class="research-meta">
+          <span>Queued</span>
+          <span>Cost: 500 ☿ + 200 ♄</span>
+        </div>
+      </div>
+
+      <div class="research-item completed">
+        <div class="research-name">✓ Hermetic Alphabets of the Lower Realm</div>
+        <p class="research-desc">Completed. Unlocked: Glyph Inscription skill for all Acolytes.</p>
+        <div class="research-progress"><div class="research-fill" style="width:100%"></div></div>
+        <div class="research-meta"><span>Completed 2 days ago</span></div>
+      </div>
+
+    </div>
+
+    <!-- ARCANA PANEL -->
+    <div id="panel-arcana" class="tab-panel">
+
+      <div class="section-label">Tarot Spread — The Three Fates</div>
+
+      <div class="tarot-spread-area">
+        <div class="spread-title">Current Active Spread · Resets at next Lunar Hour</div>
+        <div class="cards-row">
+          <div class="tarot-card revealed" onclick="toast('The Hermit — Solitary gnosis. Research speed +20% for 12h.')">
+            <span class="tarot-card-num">IX</span>
+            <span class="tarot-card-symbol">🏮</span>
+            <span class="tarot-card-name">The Hermit</span>
+          </div>
+          <div class="tarot-card revealed" onclick="toast('The Tower (Reversed) — Slow collapse. One Acolyte loses 10 Stress.')">
+            <span class="tarot-card-num">XVI</span>
+            <span class="tarot-card-symbol">🗼</span>
+            <span class="tarot-card-name">The Tower Rev.</span>
+          </div>
+          <div class="tarot-card face-down" onclick="toast('The third card has not yet been drawn. Perform a reading.')">
+          </div>
+        </div>
+        <div class="spread-effects">
+          <div class="effect-tag">
+            <div class="effect-name">Research</div>
+            <div class="effect-val pos">+20%</div>
+          </div>
+          <div class="effect-tag">
+            <div class="effect-name">Stress</div>
+            <div class="effect-val pos">−10</div>
+          </div>
+          <div class="effect-tag">
+            <div class="effect-name">3rd Card</div>
+            <div class="effect-val" style="color:var(--text-secondary)">???</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="entry-actions" style="margin-bottom:1rem">
+        <button class="btn-action primary" onclick="drawThirdCard()">Draw Third Card (200 ☽)</button>
+        <button class="btn-action" onclick="toast('A new spread requires 1,000 Lunar essence and the Moon\'s hour.')">New Spread</button>
+      </div>
+
+      <div class="section-label">Rites & Invocations</div>
+
+      <div class="research-item" onclick="toast('You perform the Rite of Saturn. Saturnine income +50% for 3h. Costs 100 ♄.')">
+        <div class="research-name">☽ Rite of the Silver Crescent</div>
+        <p class="research-desc">Offered during Lunar hours, this rite triples Lunar income for one full planetary cycle. Requires a Lunar-aligned acolyte present in the lair.</p>
+        <div class="research-meta">
+          <span>Cost: 300 ☽</span>
+          <span>Duration: 1 Lunar cycle</span>
+        </div>
+      </div>
+
+      <div class="research-item" onclick="toast('You invoke the Mercurial Tongue. Next decode attempt is free.')">
+        <div class="research-name">☿ Invocation of the Mercurial Tongue</div>
+        <p class="research-desc">Speed all ongoing research by 2x for the duration of Mercury's hour. Only usable during Mercury's planetary hour.</p>
+        <div class="research-meta">
+          <span>Cost: 150 ☿</span>
+          <span>Active: Mercury's Hour only</span>
+        </div>
+      </div>
+
+      <div class="research-item locked" style="opacity:0.5">
+        <div class="research-name">⛧ The Grand Conjuration — [LOCKED]</div>
+        <p class="research-desc">Complete the Third Seal research to unlock. A rite that aligns all seven planets simultaneously for 30 minutes. Effects unknown.</p>
+        <div class="research-meta">
+          <span>Research Required</span>
+        </div>
+      </div>
+
+    </div>
+
+  </div>
+</div>
+
+<!-- COMBAT MODAL -->
+<div id="combat-modal">
+  <div class="combat-top">
+    <div class="combat-title">The Writhing Threshold</div>
+    <div class="combat-turn">Turn 1 · Your Party's Initiative</div>
+  </div>
+
+  <div class="combat-field">
+    <div class="combat-label">ENEMIES</div>
+    <div class="combatant enemy">
+      <span class="combatant-icon">🕷</span>
+      <div class="combatant-info">
+        <div class="combatant-name">The Membrane Watcher</div>
+        <div class="hp-bar"><div class="hp-fill enemy" style="width:100%"></div></div>
+        <div class="combatant-stats">HP: 32 / 32 · BLIGHT RESIST: 60% · DODGE: 15</div>
+      </div>
+    </div>
+    <div class="combatant enemy">
+      <span class="combatant-icon">🦠</span>
+      <div class="combatant-info">
+        <div class="combatant-name">Seeping Filament</div>
+        <div class="hp-bar"><div class="hp-fill enemy" style="width:100%"></div></div>
+        <div class="combatant-stats">HP: 14 / 14 · BLIGHT RESIST: 90% · DODGE: 0</div>
+      </div>
+    </div>
+
+    <div class="combat-label" style="margin-top:0.5rem">YOUR COMPANY</div>
+    <div class="combatant ally">
+      <span class="combatant-icon">🜏</span>
+      <div class="combatant-info">
+        <div class="combatant-name">The Archivist (You)</div>
+        <div class="hp-bar"><div class="hp-fill" style="width:88%"></div></div>
+        <div class="combatant-stats">HP: 28/32 · STR: 15 · SPD: 13 · Stress: 24%</div>
+      </div>
+    </div>
+    <div class="combatant ally">
+      <span class="combatant-icon">🜃</span>
+      <div class="combatant-info">
+        <div class="combatant-name">Brother Maurus</div>
+        <div class="hp-bar"><div class="hp-fill" style="width:60%"></div></div>
+        <div class="combatant-stats">HP: 18/30 · STR: 12 · Stress: 85% ⚠</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="combat-log" id="combat-log">
+    <div class="log-line">The air tastes of copper and wet stone. Something breathes in the dark ahead.</div>
+    <div class="log-line">Brother Maurus mutters a protective formula, his hands trembling.</div>
+    <div class="log-line">The Membrane Watcher regards you with seventeen unblinking eyes.</div>
+  </div>
+
+  <div class="combat-actions">
+    <button class="combat-btn" onclick="combatAction('strike')">
+      <span class="combat-btn-icon">⚔</span>
+      Hermetic Strike
+      <span class="combat-cost">3–6 dmg · Rank 1–2</span>
+    </button>
+    <button class="combat-btn dark" onclick="combatAction('blight')">
+      <span class="combat-btn-icon">☠</span>
+      Vile Inscription
+      <span class="combat-cost">Blight 2/turn · 2☿</span>
+    </button>
+    <button class="combat-btn" onclick="combatAction('guard')">
+      <span class="combat-btn-icon">🛡</span>
+      Sigil Ward
+      <span class="combat-cost">Block 6 · 1 turn</span>
+    </button>
+    <button class="combat-btn dark" onclick="combatAction('ritual')">
+      <span class="combat-btn-icon">☉</span>
+      Solar Banishment
+      <span class="combat-cost">8–12 holy · 50☉</span>
+    </button>
+  </div>
+
+  <button class="combat-close" onclick="closeCombat()">⚊ RETREAT FROM THE PASSAGE ⚊</button>
+</div>
+
+<!-- TOASTS -->
+<div id="toasts"></div>
+
+<script>
+  // ══════════════════════════════════════════
+  // INIT
+  // ══════════════════════════════════════════
+  function enterGame() {
+    document.getElementById('splash').classList.add('hidden');
+    document.getElementById('app').style.display = 'flex';
+    document.getElementById('app').style.flexDirection = 'column';
+    initLocation();
+    startResourceTick();
+    setTimeout(() => toast('The lair stirs. The stars take notice. You descend.'), 800);
+    setTimeout(() => toast('☉ Sol Hour is active. Solar income boosted.'), 2500);
+  }
+
+  // ══════════════════════════════════════════
+  // TABS
+  // ══════════════════════════════════════════
+  function switchTab(tab) {
+    document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+    document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
+    document.querySelectorAll('.tab')[['journal','field','company','lair','arcana'].indexOf(tab)].classList.add('active');
+    document.getElementById('panel-' + tab).classList.add('active');
+    if (tab === 'field' && map) setTimeout(() => map.invalidateSize(), 50);
+  }
+
+  // ══════════════════════════════════════════
+  // LEAFLET MAP
+  // ══════════════════════════════════════════
+  let map = null;
+  let playerMarker = null;
+  let playerLat = 45.4642; // Milan fallback
+  let playerLng = 9.1900;
+
+  const missions = [
+    { type: 'combat',  title: 'The Writhing Threshold',   desc: 'Something has nested in the third sub-level. The seals weaken from inside.',   dlat:  0.0018, dlng:  0.0025, action: showCombat },
+    { type: 'story',   title: 'The Coin Bearer',           desc: 'Serena Falch waits at the market corner, pressing a strange sigil into strangers\' palms.', dlat: -0.0022, dlng: -0.0015, action: () => toast('You must go there in person to trigger this event.') },
+    { type: 'gather',  title: 'Lunar Confluence',          desc: 'Lunar essence pools here during the Moon\'s planetary hour. Stand here then.',  dlat:  0.0010, dlng: -0.0030, action: () => toast('Return here during the Moon\'s hour for massive Lunar gain.') },
+    { type: 'recruit', title: 'Potential Acolyte',         desc: 'A figure lingers near the old fountain, marked by something unseen.',          dlat: -0.0005, dlng:  0.0035, action: () => toast('Approach in person to begin the recruitment encounter.') },
+  ];
+
+  function makeIcon(type) {
+    return L.divIcon({
+      className: '',
+      html: `<div class="llair-mission ${type}"></div>`,
+      iconSize: [14, 14],
+      iconAnchor: [7, 7],
+      popupAnchor: [0, -12],
+    });
+  }
+
+  function makePlayerIcon() {
+    return L.divIcon({
+      className: '',
+      html: `<div class="llair-player"></div>`,
+      iconSize: [18, 18],
+      iconAnchor: [9, 9],
+    });
+  }
+
+  function initMap(lat, lng) {
+    playerLat = lat;
+    playerLng = lng;
+
+    map = L.map('leaflet-map', {
+      center: [lat, lng],
+      zoom: 16,
+      zoomControl: false,
+      attributionControl: true,
+    });
+
+    L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
+      attribution: '© <a href="https://www.openstreetmap.org/copyright">OSM</a> © <a href="https://carto.com/">CARTO</a>',
+      subdomains: 'abcd',
+      maxZoom: 19,
+    }).addTo(map);
+
+    // Player marker
+    playerMarker = L.marker([lat, lng], { icon: makePlayerIcon(), zIndexOffset: 1000 }).addTo(map);
+
+    // Mission markers
+    missions.forEach(m => {
+      const mlat = lat + m.dlat;
+      const mlng = lng + m.dlng;
+      const marker = L.marker([mlat, mlng], { icon: makeIcon(m.type) }).addTo(map);
+      marker.bindPopup(`
+        <div class="popup-title">${m.title}</div>
+        <div>${m.desc}</div>
+        <button class="popup-btn" onclick="(${m.action.toString()})(); document.querySelector('.leaflet-popup-close-button').click()">
+          Investigate
+        </button>
+      `, { maxWidth: 220, className: '' });
+    });
+
+    // Hide loading overlay
+    const loading = document.getElementById('map-loading');
+    loading.classList.add('hidden');
+    setTimeout(() => loading.style.display = 'none', 900);
+
+    // Watch position and update player marker
+    if (navigator.geolocation) {
+      navigator.geolocation.watchPosition(pos => {
+        const { latitude, longitude } = pos.coords;
+        playerMarker.setLatLng([latitude, longitude]);
+        playerLat = latitude;
+        playerLng = longitude;
+        document.getElementById('location-text').textContent =
+          latitude.toFixed(4) + '°N ' + longitude.toFixed(4) + '°E';
+      }, null, { enableHighAccuracy: true, maximumAge: 10000 });
+    }
+
+    toast('The city map unfolds. Your position is marked. The missions pulse.');
+  }
+
+  function initLocation() {
+    if (!navigator.geolocation) {
+      document.getElementById('map-loading').querySelector('.map-loading-text').textContent = 'Geolocation not supported';
+      initMap(45.4642, 9.1900);
+      return;
+    }
+    navigator.geolocation.getCurrentPosition(
+      pos => {
+        const { latitude, longitude } = pos.coords;
+        document.getElementById('location-text').textContent =
+          latitude.toFixed(4) + '°N ' + longitude.toFixed(4) + '°E';
+        initMap(latitude, longitude);
+      },
+      err => {
+        document.getElementById('location-text').textContent = 'Allow location for full map';
+        document.getElementById('map-loading').querySelector('.map-loading-text').textContent =
+          err.code === 1 ? 'Location permission denied — open via HTTPS' : 'Location unavailable';
+        // Still init map at a neutral point
+        initMap(45.4642, 9.1900);
+      },
+      { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
+    );
+  }
+
+
+
+  // ══════════════════════════════════════════
+  // RESOURCES TICK
+  // ══════════════════════════════════════════
+  const rates = [3, 7, 1, 2, 0.5, 4, 3];
+  const values = [847, 312, 154, 98, 41, 203, 189];
+  const pills = document.querySelectorAll('.resource-pill .res-value');
+
+  function startResourceTick() {
+    setInterval(() => {
+      rates.forEach((r, i) => {
+        values[i] += r / 60;
+        if (pills[i]) pills[i].textContent = Math.floor(values[i]);
+      });
+    }, 1000);
+  }
+
+  // ══════════════════════════════════════════
+  // COMBAT
+  // ══════════════════════════════════════════
+  const combatLines = {
+    strike: [
+      'Your sigil-branded fist connects — the Watcher recoils. <span class="hit">5 damage.</span>',
+      'The hermetic strike tears through the membrane. <span class="crit">CRITICAL — 9 damage!</span>',
+      'The Watcher\'s surface ripples — your blow glances aside. <span class="dodge">2 damage.</span>'
+    ],
+    blight: [
+      'Vile Inscription etches itself into the Filament. It begins to corrode. <span class="hit">Blight 2/turn applied.</span>',
+      'The inscription burns deeper than expected. <span class="crit">Blight 3/turn — SEVERE.</span>'
+    ],
+    guard: [
+      'A sigil of warding flares between you and the darkness. Blocking 6 damage next turn.',
+      'Maurus steps behind your ward, stress fractionally easing.'
+    ],
+    ritual: [
+      'Solar radiance pours through the cracks in the ceiling — the Watcher shrieks. <span class="crit">HOLY — 11 damage!</span>',
+      'The Banishment scorches both creatures. <span class="hit">8 damage to all enemies.</span>'
+    ]
+  };
+
+  let combatTurn = 1;
+
+  function showCombat() {
+    document.getElementById('combat-modal').classList.add('open');
+  }
+
+  function closeCombat() {
+    document.getElementById('combat-modal').classList.remove('open');
+    toast('You retreat through the crumbling passage. The threshold holds — for now.');
+  }
+
+  function combatAction(type) {
+    const lines = combatLines[type];
+    const line = lines[Math.floor(Math.random() * lines.length)];
+    const log = document.getElementById('combat-log');
+    
+    const el = document.createElement('div');
+    el.className = 'log-line ' + (line.includes('CRITICAL') ? 'crit' : line.includes('damage') ? 'hit' : '');
+    el.innerHTML = line;
+    log.appendChild(el);
+    log.scrollTop = log.scrollHeight;
+
+    combatTurn++;
+    document.querySelector('.combat-turn').textContent = 
+      'Turn ' + combatTurn + ' · ' + (combatTurn % 2 === 0 ? 'Enemy Phase' : 'Your Party\'s Initiative');
+
+    if (combatTurn % 2 === 0) {
+      setTimeout(() => {
+        const enemy = document.createElement('div');
+        enemy.className = 'log-line hit';
+        const attacks = [
+          'The Membrane Watcher lashes — a tendril finds Maurus. 4 damage. Stress +8.',
+          'The Filament secretes something dark. Blight 1/turn on The Archivist.',
+          'Seventeen eyes focus. A psychic lance — Stress +12 to both party members.',
+          'The Watcher retreats, repositioning to rank 2.'
+        ];
+        enemy.innerHTML = attacks[Math.floor(Math.random() * attacks.length)];
+        log.appendChild(enemy);
+        log.scrollTop = log.scrollHeight;
+        combatTurn++;
+        document.querySelector('.combat-turn').textContent = 
+          'Turn ' + combatTurn + ' · Your Party\'s Initiative';
+      }, 900);
+    }
+  }
+
+  // ══════════════════════════════════════════
+  // TAROT
+  // ══════════════════════════════════════════
+  const majorArcana = [
+    {num:'0', sym:'🃏', name:'The Fool'},
+    {num:'I', sym:'🪄', name:'The Magician'},
+    {num:'II', sym:'📜', name:'High Priestess'},
+    {num:'III', sym:'🌿', name:'The Empress'},
+    {num:'IV', sym:'👑', name:'The Emperor'},
+    {num:'V', sym:'⛪', name:'Hierophant'},
+    {num:'VI', sym:'💞', name:'The Lovers'},
+    {num:'VII', sym:'🏆', name:'The Chariot'},
+    {num:'VIII', sym:'⚖', name:'Justice'},
+    {num:'X', sym:'☸', name:'Wheel of Fortune'},
+    {num:'XI', sym:'🦁', name:'Strength'},
+    {num:'XII', sym:'🙃', name:'The Hanged Man'},
+    {num:'XIII', sym:'💀', name:'Death'},
+    {num:'XIV', sym:'⚗', name:'Temperance'},
+    {num:'XV', sym:'😈', name:'The Devil'},
+    {num:'XVII', sym:'⭐', name:'The Star'},
+    {num:'XVIII', sym:'🌕', name:'The Moon'},
+    {num:'XIX', sym:'☀', name:'The Sun'},
+    {num:'XX', sym:'📯', name:'Judgement'},
+    {num:'XXI', sym:'🌍', name:'The World'},
+  ];
+
+  function drawThirdCard() {
+    if (values[1] < 200) { toast('Insufficient Lunar essence. You need 200 ☽.'); return; }
+    values[1] -= 200;
+    const card = majorArcana[Math.floor(Math.random() * majorArcana.length)];
+    const reversed = Math.random() > 0.6;
+    const el = document.querySelectorAll('.tarot-card')[2];
+    el.classList.remove('face-down');
+    el.classList.add('revealed');
+    if (reversed) el.classList.add('reversed');
+    el.innerHTML = `<span class="tarot-card-num">${card.num}</span><span class="tarot-card-symbol">${card.sym}</span><span class="tarot-card-name">${card.name}${reversed?' Rev.':''}</span>`;
+    document.querySelectorAll('.effect-val')[2].textContent = card.name;
+    document.querySelectorAll('.effect-val')[2].style.color = reversed ? 'var(--crimson-bright)' : 'var(--viridian-bright)';
+    document.querySelectorAll('.effect-val')[2].className = 'effect-val ' + (reversed ? 'neg' : 'pos');
+    toast((reversed ? '⚠ ' : '✦ ') + card.name + (reversed ? ' Reversed' : '') + ' revealed. The spread is complete.');
+  }
+
+  // ══════════════════════════════════════════
+  // TOASTS
+  // ══════════════════════════════════════════
+  function toast(msg) {
+    const container = document.getElementById('toasts');
+    const el = document.createElement('div');
+    el.className = 'toast';
+    el.innerHTML = '<span class="toast-icon">✦</span><span>' + msg + '</span>';
+    container.appendChild(el);
+    setTimeout(() => el.remove(), 3600);
+  }
+
+  // Init city name if possible
+  if (navigator.geolocation) {
+    navigator.geolocation.getCurrentPosition(pos => {
+      fetch(`https://nominatim.openstreetmap.org/reverse?lat=${pos.coords.latitude}&lon=${pos.coords.longitude}&format=json`)
+        .then(r => r.json())
+        .then(d => {
+          const city = d.address.city || d.address.town || d.address.village || 'your city';
+          document.getElementById('splash-city').textContent = city;
+        }).catch(() => {});
+    });
+  }
+</script>
+</body>
+</html>
