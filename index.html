@@ -1613,6 +1613,7 @@
     cursor: pointer;
     -webkit-user-select: none;
     user-select: none;
+    -webkit-touch-callout: none;
   }
   [data-codex]:active { color: var(--gold); border-bottom-color: var(--gold); }
 
@@ -3066,7 +3067,6 @@
   // CODEX ENGINE
   // ══════════════════════════════════════════
   let currentTooltipKey = null;
-  let lpTimer = null;
   let currentCodexCat = 'all';
   let currentCodexSearch = '';
 
@@ -3137,7 +3137,7 @@
   }
 
   // ══════════════════════════════════════════
-  // LONG-PRESS TOOLTIP ENGINE
+  // TAP-TO-TOOLTIP ENGINE
   // ══════════════════════════════════════════
   function showTooltip(key) {
     const e = CODEX.find(x => x.key === key);
@@ -3155,21 +3155,15 @@
     currentTooltipKey = null;
   }
 
-  // Attach long-press to all [data-codex] elements
   function attachLongPress() {
-    document.addEventListener('pointerdown', e => {
-      const el = e.target.closest('[data-codex]');
-      if (!el) return;
-      const key = el.dataset.codex;
-      lpTimer = setTimeout(() => showTooltip(key), 450);
-    });
-    document.addEventListener('pointerup',    () => clearTimeout(lpTimer));
-    document.addEventListener('pointercancel',() => clearTimeout(lpTimer));
-    document.addEventListener('pointermove',  () => clearTimeout(lpTimer));
-    // Also support click on codex terms (for desktop)
+    // Single tap on any [data-codex] term shows the tooltip
     document.addEventListener('click', e => {
       const el = e.target.closest('[data-codex]');
-      if (el) showTooltip(el.dataset.codex);
+      if (el) {
+        e.preventDefault();
+        e.stopPropagation();
+        showTooltip(el.dataset.codex);
+      }
     });
   }
 
