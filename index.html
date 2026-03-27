@@ -2246,7 +2246,7 @@
     loading.classList.add('hidden');
     setTimeout(() => loading.style.display = 'none', 900);
 
-    // Watch position and update player marker
+    // Watch position and update player marker AND planetary hour
     if (navigator.geolocation) {
       navigator.geolocation.watchPosition(pos => {
         const { latitude, longitude } = pos.coords;
@@ -2255,6 +2255,10 @@
         playerLng = longitude;
         document.getElementById('location-text').textContent =
           latitude.toFixed(4) + '°N ' + longitude.toFixed(4) + '°E';
+        // Update planetary hour with real coordinates
+        phLat = latitude;
+        phLng = longitude;
+        renderPlanetaryHour(latitude, longitude);
       }, null, { enableHighAccuracy: true, maximumAge: 10000 });
     }
 
@@ -2273,6 +2277,7 @@
         const { latitude, longitude } = pos.coords;
         document.getElementById('location-text').textContent =
           latitude.toFixed(4) + '°N ' + longitude.toFixed(4) + '°E';
+        startPlanetaryHourEngine(latitude, longitude);
         initMap(latitude, longitude);
       },
       err => {
