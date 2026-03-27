@@ -2155,10 +2155,11 @@
     document.getElementById('splash').classList.add('hidden');
     document.getElementById('app').style.display = 'flex';
     document.getElementById('app').style.flexDirection = 'column';
-    initLocation();
+    // Start planetary hour immediately with default coords (updates when GPS arrives)
+    startPlanetaryHourEngine(46.1713, 9.8694);
     startResourceTick();
+    initLocation();
     setTimeout(() => toast('The lair stirs. The stars take notice. You descend.'), 800);
-    setTimeout(() => toast('☉ Sol Hour is active. Solar income boosted.'), 2500);
   }
 
   // ══════════════════════════════════════════
@@ -2293,118 +2294,117 @@
 
   // Chaldean order: Saturn, Jupiter, Mars, Sun, Venus, Mercury, Moon
   const CHALDEAN = ['saturn', 'jupiter', 'mars', 'sun', 'venus', 'mercury', 'moon'];
-
-  // Day ruler by weekday (0=Sun, 1=Mon, ... 6=Sat)
-  const DAY_RULERS = [3, 6, 2, 5, 1, 4, 0]; // index into CHALDEAN
+  const DAY_RULERS = [3, 6, 2, 5, 1, 4, 0]; // 0=Sun→Sun(3), 1=Mon→Moon(6) ... 6=Sat→Saturn(0)
 
   const PLANET_META = {
-    sun:     { symbol: '☉', name: 'Sol',     color: '#c9a84c', bonuses: ['+50% Solar Gain', 'Fire Rites Empowered', 'Sight Sharpened'],          resIndex: 0 },
-    moon:    { symbol: '☽', name: 'Luna',    color: '#8b8ba0', bonuses: ['+50% Lunar Gain', 'Dreams Vivid', 'Scrying Empowered'],                 resIndex: 1 },
-    jupiter: { symbol: '♃', name: 'Jupiter', color: '#6b4c8b', bonuses: ['+50% Jovian Gain', 'Expansion Rites Active', 'Recruit Bonus'],          resIndex: 2 },
-    mars:    { symbol: '♂', name: 'Mars',    color: '#8b2020', bonuses: ['+50% Martial Gain', 'Combat Damage +20%', 'Stress Resistance Up'],      resIndex: 3 },
-    saturn:  { symbol: '♄', name: 'Saturn',  color: '#8b7355', bonuses: ['+50% Saturnine Gain', 'Research Deepens', 'Seals Strengthened'],        resIndex: 4 },
-    venus:   { symbol: '♀', name: 'Venus',   color: '#5c8b5c', bonuses: ['+50% Venusian Gain', 'Acolyte Stress −10', 'Tarot Empowered'],          resIndex: 5 },
-    mercury: { symbol: '☿', name: 'Mercury', color: '#4a7a8b', bonuses: ['+50% Mercurial Gain', 'Glyphs Decoded Faster', 'Research Speed +30%'],  resIndex: 6 },
+    sun:     { symbol: '☉', name: 'Sol',     color: '#c9a84c', bonuses: ['+50% Solar Gain',     'Fire Rites Empowered',    'Sight Sharpened'],       resIndex: 0 },
+    moon:    { symbol: '☽', name: 'Luna',    color: '#8b8ba0', bonuses: ['+50% Lunar Gain',     'Dreams Vivid',            'Scrying Empowered'],     resIndex: 1 },
+    jupiter: { symbol: '♃', name: 'Jupiter', color: '#6b4c8b', bonuses: ['+50% Jovian Gain',    'Expansion Rites Active',  'Recruit Bonus'],         resIndex: 2 },
+    mars:    { symbol: '♂', name: 'Mars',    color: '#8b2020', bonuses: ['+50% Martial Gain',   'Combat Damage +20%',      'Stress Resistance Up'],  resIndex: 3 },
+    saturn:  { symbol: '♄', name: 'Saturn',  color: '#8b7355', bonuses: ['+50% Saturnine Gain', 'Research Deepens',        'Seals Strengthened'],    resIndex: 4 },
+    venus:   { symbol: '♀', name: 'Venus',   color: '#5c8b5c', bonuses: ['+50% Venusian Gain',  'Acolyte Stress −10',      'Tarot Empowered'],       resIndex: 5 },
+    mercury: { symbol: '☿', name: 'Mercury', color: '#4a7a8b', bonuses: ['+50% Mercurial Gain', 'Glyphs Decoded Faster',   'Research Speed +30%'],   resIndex: 6 },
   };
 
-  // Calculate sunrise/sunset using NOAA algorithm
-  function calcSunriseSunset(lat, lng, date) {
+  // Jean Meeus algorithm — accurate sunrise/sunset in UTC hours
+  function calcSunriseSunset(latDeg, lngDeg, date) {
     const rad = Math.PI / 180;
-    const deg = 180 / Math.PI;
-    const dayOfYear = Math.floor((date - new Date(date.getFullYear(), 0, 0)) / 86400000);
-    const B = (360 / 365) * (dayOfYear - 81) * rad;
-    const eot = 9.87 * Math.sin(2 * B) - 7.53 * Math.cos(B) - 1.5 * Math.sin(B); // minutes
-    const decl = 23.45 * Math.sin(B) * rad;
-    const HA = Math.acos(-Math.tan(lat * rad) * Math.tan(decl)) * deg; // hour angle in degrees
-    const tzOffset = date.getTimezoneOffset() / 60; // in hours, negative for east
-    const noon = 12 + tzOffset - lng / 15 - eot / 60;
-    const sunriseH = noon - HA / 15;
-    const sunsetH  = noon + HA / 15;
-    return { sunrise: sunriseH, sunset: sunsetH }; // decimal hours (local)
+    const JD = date.getTime() / 86400000 + 2440587.5;
+    const n  = Math.ceil(JD - 2451545.0 + 0.0008);
+    const Jstar = n - lngDeg / 360;
+    const M  = (357.5291 + 0.98560028 * Jstar) % 360;
+    const Mrad = M * rad;
+    const C  = 1.9148*Math.sin(Mrad) + 0.0200*Math.sin(2*Mrad) + 0.0003*Math.sin(3*Mrad);
+    const lam = (M + C + 180 + 102.9372) % 360;
+    const lamRad = lam * rad;
+    const Jtransit = 2451545.0 + Jstar + 0.0053*Math.sin(Mrad) - 0.0069*Math.sin(2*lamRad);
+    const sinDec = Math.sin(lamRad) * Math.sin(23.4397 * rad);
+    const dec = Math.asin(sinDec);
+    const lat = latDeg * rad;
+    const cosH0 = (Math.sin(-0.8333*rad) - Math.sin(lat)*sinDec) / (Math.cos(lat)*Math.cos(dec));
+    if (cosH0 < -1 || cosH0 > 1) return null;
+    const H0 = Math.acos(cosH0) / rad;
+    const Jrise = Jtransit - H0/360;
+    const Jset  = Jtransit + H0/360;
+    const toUTC = jd => ((jd - Math.floor(jd - 0.5) - 0.5) * 24);
+    return { sunriseUTC: toUTC(Jrise), sunsetUTC: toUTC(Jset) };
+  }
+
+  function fmtHour(localH) {
+    const h = ((localH % 24) + 24) % 24;
+    const hh = Math.floor(h);
+    const mm = Math.floor((h - hh) * 60);
+    return hh.toString().padStart(2,'0') + ':' + mm.toString().padStart(2,'0');
   }
 
   function getPlanetaryHour(lat, lng) {
     const now = new Date();
-    const nowH = now.getHours() + now.getMinutes() / 60 + now.getSeconds() / 3600;
-    const { sunrise, sunset } = calcSunriseSunset(lat, lng, now);
+    const tzOffMin = now.getTimezoneOffset(); // minutes west of UTC
+    const toLocal = utcH => ((utcH * 60 - tzOffMin) / 60 + 48) % 24;
 
-    const isDay = nowH >= sunrise && nowH < sunset;
-    const dayLen  = sunset - sunrise;         // hours of daylight
-    const nightLen = 24 - dayLen;             // hours of night
-    const hourLen  = isDay ? dayLen / 12 : nightLen / 12; // one planetary hour length
+    const ss = calcSunriseSunset(lat, lng, now);
+    if (!ss) return null;
 
-    // Which hour number (0–11) within day or night?
-    let hourNum;
-    if (isDay) {
-      hourNum = Math.floor((nowH - sunrise) / hourLen);
-    } else {
-      const nightStart = nowH >= sunset ? nowH - sunset : nowH + (24 - sunset);
-      hourNum = Math.floor(nightStart / hourLen);
-    }
-    hourNum = Math.max(0, Math.min(11, hourNum));
+    const srLocal = toLocal(ss.sunriseUTC);
+    const ssLocal = toLocal(ss.sunsetUTC);
+    const nowLocal = now.getHours() + now.getMinutes()/60 + now.getSeconds()/3600;
 
-    // Day ruler index
-    const weekday = now.getDay(); // 0=Sun
+    const dayLen    = ssLocal - srLocal;
+    const nightLen  = 24 - dayLen;
+    const dayHLen   = dayLen / 12;
+    const nightHLen = nightLen / 12;
+
+    const weekday = now.getDay();
     const dayRulerIdx = DAY_RULERS[weekday];
+    const nightStartIdx = (dayRulerIdx + 12) % 7;
 
-    // Daytime starts at day ruler; nighttime starts 13 hours after day ruler
-    const startIdx = isDay ? dayRulerIdx : (dayRulerIdx + 12) % 7;
-    const currentPlanetIdx = (startIdx + hourNum) % 7;
-    const currentPlanet = CHALDEAN[currentPlanetIdx];
+    // Build 24 hours
+    const allHours = [];
+    for (let i = 0; i < 12; i++) allHours.push({
+      periodIdx: i, period: 'day',
+      planetKey: CHALDEAN[(dayRulerIdx + i) % 7],
+      start: srLocal + i * dayHLen,
+      end:   srLocal + (i+1) * dayHLen,
+    });
+    for (let i = 0; i < 12; i++) allHours.push({
+      periodIdx: i, period: 'night',
+      planetKey: CHALDEAN[(nightStartIdx + i) % 7],
+      start: (ssLocal + i * nightHLen) % 24,
+      end:   (ssLocal + (i+1) * nightHLen) % 24,
+    });
 
-    // Time range of this hour
-    let hourStart, hourEnd;
-    if (isDay) {
-      hourStart = sunrise + hourNum * hourLen;
-      hourEnd   = sunrise + (hourNum + 1) * hourLen;
-    } else {
-      const ns = nowH >= sunset ? sunset : 0;
-      const nightStart = sunset;
-      if (nowH >= sunset) {
-        hourStart = sunset + hourNum * hourLen;
-        hourEnd   = sunset + (hourNum + 1) * hourLen;
-      } else {
-        hourStart = (sunset - 24) + hourNum * hourLen; // previous day night spillover
-        hourEnd   = hourStart + hourLen;
-      }
-    }
+    // Find current hour (handle midnight crossover)
+    let current = allHours.find(h => {
+      if (h.start <= h.end) return nowLocal >= h.start && nowLocal < h.end;
+      return nowLocal >= h.start || nowLocal < h.end;
+    });
+    if (!current) current = allHours[0];
 
-    // Progress through current hour (0–1)
-    const progress = ((nowH - hourStart) / hourLen);
-
-    // Build all 12 hours of this period for display
-    const hours = [];
-    for (let i = 0; i < 12; i++) {
-      hours.push(CHALDEAN[(startIdx + i) % 7]);
-    }
+    const dayHours  = allHours.filter(h => h.period === 'day');
+    const nightHours = allHours.filter(h => h.period === 'night');
+    const periodHours = current.period === 'day' ? dayHours : nightHours;
 
     return {
-      planet: currentPlanet,
-      meta: PLANET_META[currentPlanet],
-      hourNum,
-      progress: Math.max(0, Math.min(1, progress)),
-      hourStart, hourEnd, hourLen,
-      hours, isDay,
-      dayRuler: CHALDEAN[dayRulerIdx],
+      planet:      current.planetKey,
+      meta:        PLANET_META[current.planetKey],
+      hourNum:     current.periodIdx,
+      hourStart:   current.start,
+      hourEnd:     current.end,
+      hours:       periodHours.map(h => h.planetKey),
+      isDay:       current.period === 'day',
+      dayRuler:    CHALDEAN[dayRulerIdx],
+      srLocal, ssLocal,
     };
-  }
-
-  function fmtHour(h) {
-    // Convert decimal hour to HH:MM
-    const hh = Math.floor(((h % 24) + 24) % 24);
-    const mm = Math.floor((h - Math.floor(h)) * 60);
-    return hh.toString().padStart(2,'0') + ':' + mm.toString().padStart(2,'0');
   }
 
   function renderPlanetaryHour(lat, lng) {
     const ph = getPlanetaryHour(lat, lng);
-    const m  = ph.meta;
+    if (!ph) return;
+    const m = ph.meta;
 
-    // Planet name + symbol
     document.getElementById('ph-planet-name').textContent = m.symbol + ' ' + m.name + ' Hour';
     document.getElementById('ph-planet-name').style.color = m.color;
 
-    // Clock segments (12 segments, filled = past, current = active)
     const clock = document.getElementById('ph-clock');
     clock.innerHTML = '';
     for (let i = 0; i < 12; i++) {
@@ -2417,29 +2417,22 @@
       } else if (i === ph.hourNum) {
         seg.className = 'ph-segment current';
         seg.style.background = m.color;
-        seg.style.boxShadow = `0 0 6px ${m.color}`;
+        seg.style.boxShadow = '0 0 6px ' + m.color;
       } else {
         seg.className = 'ph-segment';
       }
-      seg.title = pm.name;
       clock.appendChild(seg);
     }
 
-    // Bonuses
-    const bonuses = document.getElementById('ph-bonuses');
-    bonuses.innerHTML = m.bonuses.map(b =>
+    document.getElementById('ph-bonuses').innerHTML = m.bonuses.map(b =>
       `<span class="ph-bonus" style="border-color:${m.color};color:${m.color}">${b}</span>`
     ).join('');
 
-    // Time range
     document.getElementById('ph-time-range').textContent =
       fmtHour(ph.hourStart) + ' – ' + fmtHour(ph.hourEnd) +
       ' · ' + (ph.isDay ? 'Day' : 'Night') + ' Hour ' + (ph.hourNum + 1) + '/12';
 
-    // Update dominant resource pill highlight
     updateDominantPill(ph.planet, ph.meta.resIndex);
-
-    // Boost rate of dominant resource
     return ph;
   }
 
@@ -2475,11 +2468,13 @@
   // Start planetary hour engine once we have coords
   // Called from initMap
   let phLat = 46.1713, phLng = 9.8694;
+  let phInterval = null;
   function startPlanetaryHourEngine(lat, lng) {
     phLat = lat; phLng = lng;
     renderPlanetaryHour(lat, lng);
-    // Re-render every 30 seconds
-    setInterval(() => renderPlanetaryHour(phLat, phLng), 30000);
+    if (!phInterval) {
+      phInterval = setInterval(() => renderPlanetaryHour(phLat, phLng), 30000);
+    }
   }
 
   // ══════════════════════════════════════════
